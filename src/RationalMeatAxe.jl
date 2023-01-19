@@ -3,9 +3,11 @@ module RationalMeatAxe
 using Hecke
 using Markdown
 
-using Hecke: ModAlgHom, AlgElem
+using Hecke: ModAlgHom
+import Base: reshape
 
 Mod = Hecke.ModAlgAss
+AlgElem = Hecke.AlgAssElem{fmpq, AlgAss{fmpq}}
 
 @doc Markdown.doc"""
     meataxe(M::Mod) -> Vector{Mod}
@@ -32,12 +34,14 @@ See also [`split_homogeneous(::Mod)`](@ref).
 function homogeneous_components(M::Mod) :: Vector{Mod}
     z, zhom = center_of_endomorphism_ring(M)
     dim(z) == 1 && return [M]
-    B = elements(lll(saturate(matrix(basis(z)))))
+    B = frommatrix(lll(saturate(asmatrix(matrix.(zhom.((basis(z))))))))
     for b in B
+        show(b)
         f = minpoly(b)
-        is_irreducible(f) && deg(f) == 1 && return [M]
+        is_irreducible(f) && degree(f) == 1 && return [M]
         fs = factor(f)
         length(fs) == 1 && continue
+        p, e = first(fs)
         f1 = p^e
         f2 = divexact(f, f1)
         b1 = zhom(f1(b))
@@ -55,66 +59,69 @@ function homogeneous_components(f::ModAlgHom) :: Vector{Mod}
 end
 
 function center_of_endomorphism_ring(M::Mod)
-    endM, endMhom = endomorphism_algebra(M)
+    endM, endMhom = Hecke.endomorphism_algebra(M)
     z, zhom = center(endM)
     return z, zhom * endMhom
 end
 
+fmpx_mat = Union{fmpz_mat, fmpq_mat}
 
-# Stolen from `ideal_from_lattice_gens` in AlgAssAbsOrd/Ideal.jl
-function matrix(v::Vector{AlgAssElem{fmpq}}) :: fmpz_mat
+function asmatrix(v::Vector{fmpq_mat}) :: fmpz_mat
     @assert !isempty(v)
-    M = zero_matrix(ZZ, length(v), dim(parent(v[1])))
-    _spam = ZZ(0)
-    for (i, a) in enumerate(v)
-        elem_to_mat_row!(M, i, _spam, a)
-    end
-    M
+    reduce(vcat, reshape.(numerator.(v), 1, :))
 end
+reshape(x::T, dims...) where T<:fmpx_mat = matrix(base_ring(x), reshape(Array(x), dims...)) :: T
+numerator(a::fmpq_mat) = MatrixSpace(ZZ, size(a)...)(ZZ.(denominator(a)*a)) :: fmpz_mat
 
-function elements(a::AlgAss{fmpq}, m::Union{fmpz_mat, fmpq_mat})
-    v = Vector{AlgAssElem{fmpq, AlgAss{fmpq}}}(undef, size(m, 1))
-    for i in axes(m, 1)
-        v[i] = elem_from_mat_row(a, m, i)
-    end
-    v
+function frommatrix(x::T) :: Vector{T} where T <: fmpx_mat
+    m, n_square = size(x)
+    @assert m > 0
+    n = exact_sqrt(n_square)
+    collect(MatrixSpace(base_ring(x), n, n).(eachrow(x)))
 end
+Base.eachrow(x::fmpx_mat) = eachrow(Array(x))
+exact_sqrt(n::Int) = Int(sqrt(ZZ(n)))
 
+# Zeilen von `A` bzw. `H` sollen Submodul `N` von `M` erzeugen.
+# mHx = mTAx = mTxA = mTxT⁻¹TA =mTxT⁻¹H
+# Ist `M` durch Menge `X` von Matrizen erzeugt, so ist `N` durch
+# { TxT⁻¹ : x∈X } erzeugt.
 function image(f::ModAlgHom) :: Tuple{Mod, Function}
     A = matrix(f)
+    show(A)
     m = size(A, 1)
     @assert m == size(A, 2)
     H, T = hnf_with_transform(A) # TA=H
-    n = rank(T)
+    n = rank(H)
     @assert n < m
     to, from = sub_morphisms(T, n, m)
     M = codomain(f)
     return to(M), from
 end
 
-# Zeilen von `A` bzw. `H` sollen Submodul `N` von `M` erzeugen.
-# mHx = mTAx = mTxA = mTxT⁻¹TA =mTxT⁻¹H
-# Ist `M` durch Menge `X` von Matrizen erzeugt, so ist `N` durch
-# { TxT⁻¹ : x∈X } erzeugt.
-function sub_morphisms(T::fmpz_mat, n::Int)
+function sub_morphisms(T::fmpq_mat, n::Int, m::Int)
     transform_matrix(x) = submatrix(conjugate(x, T), n)
     backtransform_matrix(x) = conjugate(embedmatrix(x, m), inv(T))
-    to(M) = Amodule(transform_matrix.(action_of_gens(M)))
-    from(M) = Amodule(backtransform_matrix.(action_of_gens(M)))
+    to(M) = Amodule(transform_matrix.(Hecke.action_of_gens(M)))
+    from(M) = Amodule(backtransform_matrix.(Hecke.action_of_gens(M)))
     return to, from
 end
 
 conjugate(a, t) = inv(t) * a * t
 
-function submatrix(A::fmpz_mat, n::Int)
-    @assert A[:, n+1:end] == 0
-    @assert A[n+1:end, :] == 0
-    A[1:n, 1:n]
+submatrix(A::fmpq_mat, n::Int) = (@assert is_submatrix(A, n); A[1:n, 1:n])
+
+function is_submatrix(A::fmpq_mat, n::Int)
+    A[:, n+1:end] == 0 && A[n+1:end, :] == 0 && return true
+    show(A); show(n)
+    false
 end
 
-function embedmatrix(A::fmpz_mat, n::Int)
-    B = zero(MatrixSpace(ZZ, n, n))
+function embedmatrix(A::fmpq_mat, m::Int)
+    B = zero(MatrixSpace(QQ, m, m))
+    n = size(A, 1)
     B[1:n, 1:n] = A
+    B
 end
 
 # ===
@@ -129,10 +136,12 @@ The input $M$ needs to be homogeneous, i.e. allow such a decomposition.
 See also [`homogeneous_components(::Mod)`](@ref).
 """
 function split_homogeneous(M::Mod)
-    endM, endMhom = endomorphism_algebra(M)
+    endM, endMhom = Hecke.endomorphism_algebra(M)
     o = maximal_order(endM)
-    # TODO m,s
-    true && return [M]
+    si = schur_index(endM)
+    d = divexact(dim(endM), dim(center(endM)[1]))
+    m = divexact(sqrt(d), si)
+    m == 1 && return [M]
     s = maximal_order_basis_search(o)
     fs = factor(minpoly(s))
     @assert length(fs) > 1
@@ -154,6 +163,6 @@ end
 
 find(f, v) = (i = findfirst(f, v); i === nothing ? nothing : f[i])
 
-is_split(a::Element) = !is_irreducible(minpoly(a))
+is_split(a::AlgElem) = !is_irreducible(minpoly(a))
 
 end
