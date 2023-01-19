@@ -36,26 +36,24 @@ function homogeneous_components(M::Mod) :: Vector{Mod}
     dim(z) == 1 && return [M]
     B = frommatrix(lll(saturate(asmatrix(matrix.(zhom.((basis(z))))))))
     for b in B
-        show(b)
         f = minpoly(b)
-        is_irreducible(f) && degree(f) == 1 && return [M]
+        println(b,f)
+        is_irreducible(f) && degree(f) == dim(z) && return [M]
         fs = factor(f)
         length(fs) == 1 && continue
         p, e = first(fs)
         f1 = p^e
         f2 = divexact(f, f1)
-        b1 = zhom(f1(b))
-        b2 = zhom(f2(b))
-        ss1 = homogeneous_components(b1)
-        ss2 = homogeneous_components(b2)
+        ss1 = homogeneous_components(M, f1(b))
+        ss2 = homogeneous_components(M, f2(b))
         return [ss1; ss2]
     end
     return [M]
 end
 
-function homogeneous_components(f::ModAlgHom) :: Vector{Mod}
-    s, embed = image(f)
-    embed.(homogeneous_components(s))
+function homogeneous_components(M::Mod, A::fmpz_mat) :: Vector{Mod}
+    to, from = sub_morphisms(A)
+    from.(homogeneous_components(to(M)))
 end
 
 function center_of_endomorphism_ring(M::Mod)
@@ -86,20 +84,16 @@ exact_sqrt(n::Int) = Int(sqrt(ZZ(n)))
 # mHx = mTAx = mTxA = mTxT⁻¹TA =mTxT⁻¹H
 # Ist `M` durch Menge `X` von Matrizen erzeugt, so ist `N` durch
 # { TxT⁻¹ : x∈X } erzeugt.
-function image(f::ModAlgHom) :: Tuple{Mod, Function}
-    A = matrix(f)
-    show(A)
+function sub_morphisms(A::fmpz_mat)
     m = size(A, 1)
     @assert m == size(A, 2)
     H, T = hnf_with_transform(A) # TA=H
     n = rank(H)
     @assert n < m
-    to, from = sub_morphisms(T, n, m)
-    M = codomain(f)
-    return to(M), from
+    return sub_morphisms(T, n, m)
 end
 
-function sub_morphisms(T::fmpq_mat, n::Int, m::Int)
+function sub_morphisms(T::fmpz_mat, n::Int, m::Int)
     transform_matrix(x) = submatrix(conjugate(x, T), n)
     backtransform_matrix(x) = conjugate(embedmatrix(x, m), inv(T))
     to(M) = Amodule(transform_matrix.(Hecke.action_of_gens(M)))
