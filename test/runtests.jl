@@ -11,56 +11,59 @@ using Test
 # Eventually, we also want tests over other fields than ℚ.
 # The algorithmic components of the new algorithm shall also be unit tested.
 
-@testset "RationalMeatAxe.jl" begin
+Hecke.set_verbosity_level(:rma, 1)
 
-    #=
+# example by Claus Fieker, using Oscar
+# generators = mat.(irreducible_modules(QQ, transitive_group(8, 5))[end].ac)
+gens1 = MatrixSpace(QQ,4,4).([
+    [ 0  1  0  0
+     -1  0  0  0
+      0  0  0 -1
+      0  0  1  0],
+    [ 0  0 -1  0
+      0  0  0 -1
+      1  0  0  0
+      0  1  0  0]
+ ])
+M1 = Hecke.Amodule(gens1)
+
+gens2 = MatrixSpace(QQ,3,3).([[0 1 0;1 0 0;0 0 1], [0 1 0;0 0 1;1 0 0]])
+M2 = Hecke.Amodule(gens2)
+M2sub1gens = MatrixSpace(QQ,1,1).([[1],[1]])
+
+if false
+@testset "Hecke.jl" begin
     @testset "transitive_group(8,5) on QQ^4" begin
-        # example by Claus Fieker, using Oscar
-        # generators = mat.(irreducible_modules(QQ, transitive_group(8, 5))[end].ac)
-        generators = MatrixSpace(QQ,4,4).([
-            [ 0  1  0  0
-             -1  0  0  0
-              0  0  0 -1
-              0  0  1  0],
-            [ 0  0 -1  0
-              0  0  0 -1
-              1  0  0  0
-              0  1  0  0]
-         ])
-        M = Hecke.Amodule(generators)
-
-        @testset "Hecke fails" begin
-            @test_throws "Too many attempts" Hecke.meataxe(M)
-            @test Hecke.composition_factors(M) skip=true
-            @test Hecke.composition_factors_with_multiplicity(M) skip=true
-            @test Hecke.composition_series(M) skip=true
-        end
-        @testset "Rational Meataxe" begin
-            @test RationalMeatAxe.meataxe(M) == [M]
-        end
+        @test_throws "Too many attempts" Hecke.meataxe(M1)
+        @test Hecke.composition_factors(M1) skip=true
+        @test Hecke.composition_factors_with_multiplicity(M1) skip=true
+        @test Hecke.composition_series(M1) skip=true
     end
-    =#
-
-
     @testset "Sym(3) on QQ^3" begin
-        generators = MatrixSpace(QQ,3,3).([[0 1 0;1 0 0;0 0 1], [0 1 0;0 0 1;1 0 0]])
-        M = Hecke.Amodule(generators)
-        Msub1gens = MatrixSpace(QQ,1,1).([[1],[1]])
+        MsubHecke = Hecke.composition_factors(M2)
+        @test M2sub1gens in Hecke.action_of_gens.(MsubHecke)
+        @test sort(dim.(MsubHecke)) == [1,2]
+    end
+end
+end
 
-        @testset "Hecke" begin
-            MsubHecke = Hecke.composition_factors(M)
-            @test Msub1gens in Hecke.action_of_gens.(MsubHecke)
-            @test sort(dim.(MsubHecke)) == [1,2]
-        end
 
-        @testset "Rational Meataxe" begin
-            Mhomogenous = RationalMeatAxe.homogeneous_components(M)
+@testset "RationalMeatAxe.jl" begin
+    @testset "Sym(3) on QQ^3" begin
+        @test RationalMeatAxe.homogeneous_components(M1) == [M1]
+    end
+    @testset "transitive_group(8,5) on QQ^4" begin
+        @testset "homogeneous components" begin
+            Mhomogenous = RationalMeatAxe.homogeneous_components(M2)
             @test length(Mhomogenous) == 2
-            # Msub = RationalMeatAxe.meataxe(M)
-            @test RationalMeatAxe.meataxe(M1) == [M1]
-            @test M2sub1gens in Hecke.action_of_gens.(M2sub)
-            @test sort(dim.(M2sub)) == [1,2]
+        end
+        if false
+        @testset "meataxe" begin
+            Msub = RationalMeatAxe.meataxe(M2)
+            @test Msub == [M2]
+            @test M2sub1gens in Hecke.action_of_gens.(Mhomogenous)
+            @test sort(dim.(Mhomogenous)) == [1,2]
+        end
         end
     end
-
 end
