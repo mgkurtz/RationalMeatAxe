@@ -11,6 +11,8 @@ AlgElem = Hecke.AlgAssElem{fmpq, AlgAss{fmpq}}
 
 __init__() = Hecke.add_verbosity_scope(:rma)
 
+# TODO: Hecke.decompose anschauen, oder gleich ganz Hecke.AlgAss
+
 @doc Markdown.doc"""
     meataxe(M::Mod) -> Vector{Mod}
 
