@@ -1,7 +1,6 @@
 module RationalMeatAxe
 
 using Hecke
-using Markdown
 
 using Hecke: ModAlgHom
 import Base: reshape
@@ -13,7 +12,7 @@ __init__() = Hecke.add_verbosity_scope(:rma)
 
 # TODO: Hecke.decompose anschauen, oder gleich ganz Hecke.AlgAss
 
-@doc Markdown.doc"""
+@doc raw"""
     meataxe(M::Mod) -> Vector{Mod}
 
 Given a semisimple module $M$ return simple submodules which add up to $M$.
@@ -25,7 +24,7 @@ function meataxe(M::Mod)
     reduce(vcat, split_homogeneous.(homogeneous_components(M)))
 end
 
-@doc Markdown.doc"""
+@doc raw"""
     homogeneous_components(M::Mod) -> Vector{Mod}
 
 Return homogeneous $S_i$ such that $M=\bigoplus_i S_i=M$.
@@ -139,7 +138,7 @@ end
 
 # ===
 
-@doc Markdown.doc"""
+@doc raw"""
     split_homogeneous(M::Mod) -> Vector{Mod}
 
 Return pairwise isomorphic simple $S_i$ such that $M=\bigoplus_i S_i=M$.
