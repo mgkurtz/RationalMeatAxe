@@ -31,6 +31,10 @@ gens2 = MatrixSpace(QQ,3,3).([[0 1 0;1 0 0;0 0 1], [0 1 0;0 0 1;1 0 0]])
 M2 = Hecke.Amodule(gens2)
 M2sub1gens = MatrixSpace(QQ,1,1).([[1],[1]])
 
+using RationalMeatAxe.RandomAlgebras
+
+Mrands = [RandomAlgebras.rand_sum_of_matrix_algebras(make(QQ, -i:i), i, i, i) for i in 2:4]
+
 if false
 @testset "Hecke.jl" begin
     @testset "transitive_group(8,5) on QQ^4" begin
@@ -49,6 +53,21 @@ end
 
 
 @testset "RationalMeatAxe.jl" begin
+    @testset "center of End: $i" for (i, M) in Iterators.enumerate(Mrands)
+        z, zhom = RationalMeatAxe.center_of_endomorphism_ring(M)
+        for a in matrix.(zhom.(basis(z))), m in M.action_of_gens
+            @test a * m == m * a
+        end
+    end
+
+    @testset "basis of center of End: $i" for (i, M) in Iterators.enumerate(Mrands[1:1])
+        B = RationalMeatAxe.basis_of_center_of_endomorphism_ring(M)
+        @test B !== nothing
+        for a in B, m in M.action_of_gens
+            @test a * m == m * a
+        end
+    end
+
     @testset "Sym(3) on QQ^3" begin
         @test RationalMeatAxe.homogeneous_components(M1) == [M1]
     end
@@ -65,5 +84,7 @@ end
             @test sort(dim.(Mhomogenous)) == [1,2]
         end
         end
+    end
+    @testset "random" begin
     end
 end

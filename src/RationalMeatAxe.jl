@@ -38,10 +38,8 @@ See also [`split_homogeneous(::Mod)`](@ref).
 """
 function homogeneous_components(M::Mod) :: Vector{Mod}
     @vprint :rma "# Homogeneous Components of $M\n"
-    z, zhom = center_of_endomorphism_ring(M)
-    dim(z) == 1 && return [M]
-    # TODO: Write this code using lattices
-    B = frommatrix(lll(saturate(asmatrix(matrix.(zhom.((basis(z))))))))
+    B = basis_of_center_of_endomorphism_ring(M)
+    B === nothing && return [M]
     @vprint :rma "## Iterating through basis $B of the center of the endomorphism ring\n"
     for b in B
         @vprint :rma "Current basis element is\n"
@@ -69,6 +67,14 @@ function homogeneous_components(M::Mod, A::ZZMatrix) :: Vector{Mod}
     L = from.(homogeneous_components(to(M)))
     Hecke.popindent()
     return L
+end
+
+function basis_of_center_of_endomorphism_ring(M::Mod)
+    z, zhom = center_of_endomorphism_ring(M)
+    dim(z) == 1 && return
+    # TODO: Write this code using lattices
+    # FIXME
+    return frommatrix(lll(saturate(asmatrix(matrix.(zhom.((basis(z))))))))
 end
 
 function center_of_endomorphism_ring(M::Mod)
