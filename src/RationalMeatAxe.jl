@@ -8,7 +8,7 @@ import Base: reshape
 include("RandomAlgebras.jl")
 
 Mod = Hecke.ModAlgAss
-AlgElem = Hecke.AlgAssElem{fmpq, AlgAss{fmpq}}
+AlgElem = Hecke.AlgAssElem{QQFieldElem, AlgAss{QQFieldElem}}
 
 __init__() = Hecke.add_verbosity_scope(:rma)
 
@@ -61,7 +61,7 @@ function homogeneous_components(M::Mod) :: Vector{Mod}
     return [M]
 end
 
-function homogeneous_components(M::Mod, A::fmpz_mat) :: Vector{Mod}
+function homogeneous_components(M::Mod, A::ZZMatrix) :: Vector{Mod}
     @vprint :rma "### Splitting at\n"
     @v_do :rma display(A)
     to, from = sub_morphisms(A)
@@ -77,22 +77,22 @@ function center_of_endomorphism_ring(M::Mod)
     return z, zhom * endMhom
 end
 
-fmpx_mat = Union{fmpz_mat, fmpq_mat}
+ZZQQMatrix = Union{ZZMatrix, QQMatrix}
 
-function asmatrix(v::Vector{fmpq_mat}) :: fmpz_mat
+function asmatrix(v::Vector{QQMatrix}) :: ZZMatrix
     @req !isempty(v) "Vector must be non-empty"
     return reduce(vcat, reshape.(numerator.(v), 1, :))
 end
-reshape(x::T, dims...) where T<:fmpx_mat = matrix(base_ring(x), reshape(Array(x), dims...)) :: T
-numerator(a::fmpq_mat) = MatrixSpace(ZZ, size(a)...)(ZZ.(denominator(a)*a)) :: fmpz_mat
+reshape(x::T, dims...) where T<:ZZQQMatrix = matrix(base_ring(x), reshape(Array(x), dims...)) :: T
+numerator(a::QQMatrix) = MatrixSpace(ZZ, size(a)...)(ZZ.(denominator(a)*a)) :: ZZMatrix
 
-function frommatrix(x::T) :: Vector{T} where T <: fmpx_mat
+function frommatrix(x::T) :: Vector{T} where T <: ZZQQMatrix
     m, n_square = size(x)
     @assert m > 0
     n = exact_sqrt(n_square)
     return collect(MatrixSpace(base_ring(x), n, n).(eachrow(x)))
 end
-Base.eachrow(x::fmpx_mat) = eachrow(Array(x))
+Base.eachrow(x::ZZQQMatrix) = eachrow(Array(x))
 exact_sqrt(n::Int) = Int(sqrt(ZZ(n)))
 
 # Sei 𝓐 ⊆ K^{𝑚×𝑚} K-rechts-Algebra, also X∈𝓐 auf dem Modul $M=K^𝑚$ von rechts operierende Matrix.
@@ -103,7 +103,7 @@ exact_sqrt(n::Int) = Int(sqrt(ZZ(n)))
 # (n×n)   0
 # (k×n) (k×k)
 # mit 𝑘=𝑚−𝑛.
-function sub_morphisms(A::fmpz_mat)
+function sub_morphisms(A::ZZMatrix)
     m = size(A, 1)
     @assert m == size(A, 2)
     H, T = column_hnf_with_transform(A) # AT=H
@@ -116,8 +116,8 @@ end
 # TᵀAᵀ = Hᵀ ⇔ (AT)ᵀ = Hᵀ ⇔ AT = H
 column_hnf_with_transform(A) = transpose.(hnf_with_transform(transpose(A)))
 
-function sub_morphisms(T::fmpz_mat, n::Int, m::Int)
-    transform_matrix(x) = submatrix(right_conjugate(x, T), n)
+function sub_morphisms(T::ZZMatrix, n::Int, m::Int)
+    transform_matrix(x) = (@vprint :rma 2 "T⁻¹ ⋅ $x ⋅ T = $(right_conjugate(x, T))"; submatrix(right_conjugate(x, T), n))
     #TODO: Geht `embedmatrix` überhaupt? Wohl kaum, schließlich müssen wir wieder in unserem Modul rauskommen.
     backtransform_matrix(x) = left_conjugate(embedmatrix(x, m), T)
     to(M) = Amodule(transform_matrix.(Hecke.action_of_gens(M)))
@@ -128,10 +128,10 @@ end
 right_conjugate(a, t) = inv(t) * a * t
 left_conjugate(a, t) = t * a * inv(t)
 
-submatrix(A::fmpq_mat, n::Int) = (@assert A[1:n, n+1:end] == 0; A[1:n, 1:n])
+submatrix(A::QQMatrix, n::Int) = (@assert A[1:n, n+1:end] == 0; A[1:n, 1:n])
 
 
-function embedmatrix(A::fmpq_mat, m::Int)
+function embedmatrix(A::QQMatrix, m::Int)
     B = zero(MatrixSpace(QQ, m, m))
     n = size(A, 1)
     B[1:n, 1:n] = A
