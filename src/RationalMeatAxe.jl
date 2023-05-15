@@ -5,6 +5,8 @@ using Hecke
 using Hecke: ModAlgHom
 import Base: reshape
 
+include("RandomAlgebras.jl")
+
 Mod = Hecke.ModAlgAss
 AlgElem = Hecke.AlgAssElem{fmpq, AlgAss{fmpq}}
 
