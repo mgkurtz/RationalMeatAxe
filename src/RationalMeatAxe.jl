@@ -70,26 +70,23 @@ function homogeneous_components(M::Mod, A::ZZMatrix) :: Vector{Mod}
 end
 
 function basis_of_center_of_endomorphism_ring(M::Mod)
-    z, zhom = center_of_endomorphism_ring(M)
-    dim(z) == 1 && return
-    # TODO: Write this code using lattices
-    # FIXME
-    return frommatrix(lll(saturate(asmatrix(matrix.(zhom.((basis(z))))))))
+    z = center_of_endomorphism_ring(M)
+    return frommatrix(lll(saturate(asmatrix(z))))
 end
 
 function center_of_endomorphism_ring(M::Mod)
     endM, endMhom = Hecke.endomorphism_algebra(M)
     z, zhom = center(endM)
-    return z, zhom * endMhom
+    return numerator.(matrix.(endMhom.(zhom.(basis(z)))))
 end
 
 ZZQQMatrix = Union{ZZMatrix, QQMatrix}
 
-function asmatrix(v::Vector{QQMatrix}) :: ZZMatrix
+function asmatrix(v::Vector{ZZMatrix}) :: ZZMatrix
     @req !isempty(v) "Vector must be non-empty"
-    return reduce(vcat, reshape.(numerator.(v), 1, :))
+    return reduce(vcat, reshape.(v, 1, :))
 end
-reshape(x::T, dims...) where T<:ZZQQMatrix = matrix(base_ring(x), reshape(Array(x), dims...)) :: T
+reshape(x::T, dims...) where T<:ZZQQMatrix = matrix(base_ring(x), reshape(transpose(Array(x)), dims...)) :: T
 numerator(a::QQMatrix) = MatrixSpace(ZZ, size(a)...)(ZZ.(denominator(a)*a)) :: ZZMatrix
 
 function frommatrix(x::T) :: Vector{T} where T <: ZZQQMatrix

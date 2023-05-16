@@ -1,4 +1,5 @@
 using RationalMeatAxe
+using RandomExtensions
 using Hecke
 using Test
 
@@ -54,13 +55,13 @@ end
 
 @testset "RationalMeatAxe.jl" begin
     @testset "center of End: $i" for (i, M) in Iterators.enumerate(Mrands)
-        z, zhom = RationalMeatAxe.center_of_endomorphism_ring(M)
-        for a in matrix.(zhom.(basis(z))), m in M.action_of_gens
+        z = RationalMeatAxe.center_of_endomorphism_ring(M)
+        for a in z, m in M.action_of_gens
             @test a * m == m * a
         end
     end
 
-    @testset "basis of center of End: $i" for (i, M) in Iterators.enumerate(Mrands[1:1])
+    @testset "basis of center of End: $i" for (i, M) in Iterators.enumerate(Mrands)
         B = RationalMeatAxe.basis_of_center_of_endomorphism_ring(M)
         @test B !== nothing
         for a in B, m in M.action_of_gens
