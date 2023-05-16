@@ -121,7 +121,7 @@ end
 column_hnf_with_transform(A) = transpose.(hnf_with_transform(transpose(A)))
 
 function sub_morphisms(T::ZZMatrix, n::Int, m::Int)
-    transform_matrix(x) = (@vprint :rma 2 "T⁻¹ ⋅ $x ⋅ T = $(right_conjugate(x, T))"; submatrix(right_conjugate(x, T), n))
+    transform_matrix(x) = (@vprint :rma 2 "T⁻¹ ⋅ $x ⋅ T = $(right_conjugate(x, T))\n"; submatrix(right_conjugate(x, T), n))
     #TODO: Geht `embedmatrix` überhaupt? Wohl kaum, schließlich müssen wir wieder in unserem Modul rauskommen.
     backtransform_matrix(x) = left_conjugate(embedmatrix(x, m), T)
     to(M) = Amodule(transform_matrix.(Hecke.action_of_gens(M)))
