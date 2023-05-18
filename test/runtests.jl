@@ -89,6 +89,7 @@ end
 
     @testset "transitive_group(8,5) on QQ^4" begin
         @test RationalMeatAxe.homogeneous_components(M1) == [M1]
+        @test RationalMeatAxe.meataxe(M1) == [M1]
     end
     @testset "Sym(3) on QQ^3" begin
         @testset "homogeneous components" begin
