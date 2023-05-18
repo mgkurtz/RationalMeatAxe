@@ -94,19 +94,20 @@ end
         @testset "homogeneous components" begin
             Mhomogenous = RationalMeatAxe.homogeneous_components(M2)
             @test length(Mhomogenous) == 2
+            @test M2sub1gens in Hecke.action_of_gens.(Mhomogenous)
+            @test sort(dim.(Mhomogenous)) == [1,2]
         end
         @testset "meataxe" begin
             Msub = RationalMeatAxe.meataxe(M2)
-            @test Msub == [M2]
-            @test M2sub1gens in Hecke.action_of_gens.(Mhomogenous)
-            @test sort(dim.(Mhomogenous)) == [1,2]
+            @test length(Msub) == 2
+            @test M2sub1gens in Hecke.action_of_gens.(Msub)
+            @test sort(dim.(Msub)) == [1,2]
         end
     end
     @testset "rand_sum_of_matrix_algebras_gens" begin
         gs = rand_sum_of_matrix_algebras_gens(make(ZZ, -9:9), [1 => 1, 2 => 2, 3 => 3])
-        gs[1][1,1] = 0
-        for g in gs[2:3] g[2:3,2:3] = 0 end
-        for g in gs[4:6] g[4:6,4:6] = 0 end
-        @test gs == 0
+        gs[1][1,1] = 0; @test all(gs[1] .== 0)
+        for g in gs[2:3] g[2:3,2:3] .= 0; @test all(g .== 0) end
+        for g in gs[4:6] g[4:6,4:6] .= 0; @test all(g .== 0) end
     end
 end
