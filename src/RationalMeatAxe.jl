@@ -4,6 +4,7 @@ using Hecke
 
 using Hecke: ModAlgHom
 import Base: reshape
+import Hecke: sub, domain, codomain, mat
 
 include("RandomAlgebras.jl")
 
@@ -132,7 +133,7 @@ struct SubMod
     SubMod(h::ModHom) = new(h.codomain, h)
 end
 SubMod(M::Hecke.ModAlgAss, A::Mat) = SubMod(ModHom(M, A))
-sub(M::Hecke.ModAlgAss, A::Mat) = SubMod(M, A)
+sub(M::Hecke.ModAlgAss, A::Mat) = codomain(ModHom(M, A))
 
 
 # Sei 𝓐 ⊆ K^{𝑚×𝑚} K-rechts-Algebra, jedes X∈𝓐 also auf dem Modul $M=K^𝑚$

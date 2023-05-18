@@ -1,5 +1,5 @@
 using RationalMeatAxe
-using RationalMeatAxe.RandomAlgebras:
+using RationalMeatAxe.RandomAlgebras: RandomAlgebras,
     rand_sum_of_matrix_algebras, rand_sum_of_matrix_algebras_gens, rand_invertible
 using RandomExtensions
 using Hecke
@@ -14,7 +14,7 @@ using Test
 # Eventually, we also want tests over other fields than ℚ.
 # The algorithmic components of the new algorithm shall also be unit tested.
 
-Hecke.set_verbosity_level(:rma, 1)
+Hecke.set_verbosity_level(:rma, 0)
 
 # example by Claus Fieker, using Oscar
 # generators = mat.(irreducible_modules(QQ, transitive_group(8, 5))[end].ac)
@@ -74,15 +74,15 @@ end
         entries = -9:9
 
         gs = rand_sum_of_matrix_algebras_gens(make(ZZ, entries), [a => 2, b => 2])
-        S = MatrixSpace(ZZ, a+b, a+b)
+        S = MatrixSpace(QQ, a+b, a+b)
         T = rand_invertible(make(S, entries))
         A = zero(S)
-        A[1:a,1:a] = identity_matrix(ZZ, a)
+        A[1:a,1:a] = identity_matrix(QQ, a)
         gs_ = [inv(T)] .* S.(gs) .* [T]
         A_ = inv(T) * S(A) * T
 
         M = Amodule(gs_)
-        M2 = sub(M, A_) # implicitly test some assertions
+        M2 = RationalMeatAxe.sub(M, A_) # implicitly test some assertions
 
         @test dim(M2) == a
     end
