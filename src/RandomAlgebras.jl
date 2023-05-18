@@ -25,14 +25,20 @@ julia> sum_of_matrix_algebras_gens(make(ZZ, -9:9), 2, 3, 5)
 
 ```
 """
-function rand_sum_of_matrix_algebras_gens(entries, number, max_size, max_gens)
-    sizes = rand(1:max_size, number)
-    offsets = cumsum(sizes)
-    N = offsets[end]
-    ngens = rand(1:max_gens, number)
-    gss = [enlarge_matrix.(rand_gens(entries, n, g), N, o) for (n,g,o) in zip(sizes,ngens,offsets)]
-    return reduce(vcat, gss)
+rand_sum_of_matrix_algebras_gens(entries, number, max_size, max_gens) =
+    rand_sum_of_matrix_algebras_gens(
+        entries, rand(make(Pair, 1:max_size, 1:max_gens), number))
+
+function rand_sum_of_matrix_algebras_gens(entries, sizes_and_amount::Vector{Pair{Int, Int}})
+    offsets = cumsum(first.(sizes_and_amount))
+    ranges = [a+1:b for (a,b) in zip([0;offsets[1:end-1]], offsets)]
+    ranges_and_amount = (r => a for (r, (_, a)) in zip(ranges, sizes_and_amount))
+    return rand_sum_of_matrix_algebras_gens(entries, ranges_and_amount, offsets[end])
 end
+
+rand_sum_of_matrix_algebras_gens(
+        entries, ranges_and_amount, total_size::Int) =
+    [rand_mat(entries, r, total_size) for (r, a) in ranges_and_amount for _ in 1:a]
 
 """
     rand_change_basis(matrices)
@@ -41,6 +47,7 @@ Change with some random basis.
 """
 function rand_change_basis(entries, matrices)
     isempty(matrices) && return matrices
+    matrices = matrices
     n = size(matrices[1], 1)
     for m in matrices @assert size(m) == (n, n) end
     n == 0 && return matrices
@@ -58,24 +65,14 @@ function rand_invertible(R)
 end
 
 raw"""
-    rand_gens(entries, n, ngens) -> iterator of Matrix{eltype(entries)}
+    rand_mat(entries, position::UnitRange{Int}, n::Int) -> Matrix{eltype(entries)}
 
-Some module generators, i.e. `ngens` julia $n×n$ matrices with entries taken randomly from `entries`.
+Some $n×n$ matrix `A` with random entries in `A[position, position]` and zero everywhere else.
 """
-rand_gens(entries, n, ngens) = eachslice(rand(entries, n, n, ngens); dims=3)
-
-raw"""
-    enlarge_matrix(A, n=size(A,1), end_offset=size(A,1)) -> Matrix{eltype(A)}
-
-Turn $m×m$ matrix $A$ into a $n×n$ matrix by placing it at offset on the diagonal.
-"""
-function enlarge_matrix(A, n=size(A, 1), end_offset=size(A, 1))
-    @assert size(A, 1) == size(A, 2)
-    m = size(A, 1)
-    B = zeros(eltype(A), n, n)
-    new_pos = end_offset-m+1 : end_offset
-    B[new_pos, new_pos] = A
-    return B
+function rand_mat(entries, position::UnitRange{Int}, n::Int)
+    A = zeros(eltype(entries), n, n)
+    A[position, position] = rand(entries, length(position), length(position))
+    return A
 end
 
 end

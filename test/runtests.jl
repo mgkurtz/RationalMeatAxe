@@ -1,4 +1,6 @@
 using RationalMeatAxe
+using RationalMeatAxe.RandomAlgebras:
+    rand_sum_of_matrix_algebras, rand_sum_of_matrix_algebras_gens, rand_invertible
 using RandomExtensions
 using Hecke
 using Test
@@ -31,8 +33,6 @@ M1 = Hecke.Amodule(gens1)
 gens2 = MatrixSpace(QQ,3,3).([[0 1 0;1 0 0;0 0 1], [0 1 0;0 0 1;1 0 0]])
 M2 = Hecke.Amodule(gens2)
 M2sub1gens = MatrixSpace(QQ,1,1).([[1],[1]])
-
-using RationalMeatAxe.RandomAlgebras
 
 Mrands = [RandomAlgebras.rand_sum_of_matrix_algebras(make(QQ, -i:i), i, i, i) for i in 2:4]
 
@@ -69,23 +69,44 @@ end
         end
     end
 
-    @testset "Sym(3) on QQ^3" begin
+    @testset "submodules" begin
+        a, b = 3, 4
+        entries = -9:9
+
+        gs = rand_sum_of_matrix_algebras_gens(make(ZZ, entries), [a => 2, b => 2])
+        S = MatrixSpace(ZZ, a+b, a+b)
+        T = rand_invertible(make(S, entries))
+        A = zero(S)
+        A[1:a,1:a] = identity_matrix(ZZ, a)
+        gs_ = [inv(T)] .* S.(gs) .* [T]
+        A_ = inv(T) * S(A) * T
+
+        M = Amodule(gs_)
+        M2 = sub(M, A_) # implicitly test some assertions
+
+        @test dim(M2) == a
+    end
+
+    @testset "transitive_group(8,5) on QQ^4" begin
         @test RationalMeatAxe.homogeneous_components(M1) == [M1]
     end
-    @testset "transitive_group(8,5) on QQ^4" begin
+    @testset "Sym(3) on QQ^3" begin
         @testset "homogeneous components" begin
             Mhomogenous = RationalMeatAxe.homogeneous_components(M2)
             @test length(Mhomogenous) == 2
         end
-        if false # broken
         @testset "meataxe" begin
             Msub = RationalMeatAxe.meataxe(M2)
             @test Msub == [M2]
             @test M2sub1gens in Hecke.action_of_gens.(Mhomogenous)
             @test sort(dim.(Mhomogenous)) == [1,2]
         end
-        end
     end
-    @testset "random" begin
+    @testset "rand_sum_of_matrix_algebras_gens" begin
+        gs = rand_sum_of_matrix_algebras_gens(make(ZZ, -9:9), [1 => 1, 2 => 2, 3 => 3])
+        gs[1][1,1] = 0
+        for g in gs[2:3] g[2:3,2:3] = 0 end
+        for g in gs[4:6] g[4:6,4:6] = 0 end
+        @test gs == 0
     end
 end

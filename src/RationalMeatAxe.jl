@@ -7,10 +7,10 @@ import Base: reshape
 
 include("RandomAlgebras.jl")
 
+__init__() = Hecke.add_verbosity_scope(:rma)
+
 Mod = Hecke.ModAlgAss
 AlgElem = Hecke.AlgAssElem{QQFieldElem, AlgAss{QQFieldElem}}
-
-__init__() = Hecke.add_verbosity_scope(:rma)
 
 # TODO: Hecke.decompose anschauen, oder gleich ganz Hecke.AlgAss
 
@@ -65,7 +65,8 @@ function homogeneous_components(M::Mod, A::ZZMatrix) :: Vector{Mod}
     @v_do :rma display(A)
     to, from = sub_morphisms(A)
     Hecke.pushindent()
-    L = from.(homogeneous_components(to(M)))
+    # L = from.(homogeneous_components(to(M)))
+    L = homogeneous_components(to(M))
     Hecke.popindent()
     return L
 end
@@ -81,29 +82,65 @@ function center_of_endomorphism_ring(M::Mod)
     return numerator.(matrix.(endMhom.(zhom.(basis(z)))))
 end
 
-ZZQQMatrix = Union{ZZMatrix, QQMatrix}
+Mat = Union{ZZMatrix, QQMatrix}
 
 function asmatrix(v::Vector{ZZMatrix}) :: ZZMatrix
     @req !isempty(v) "Vector must be non-empty"
     return reduce(vcat, reshape.(v, 1, :))
 end
-reshape(x::T, dims...) where T<:ZZQQMatrix = matrix(base_ring(x), reshape(transpose(Array(x)), dims...)) :: T
+reshape(x::T, dims...) where T<:Mat = matrix(base_ring(x), reshape(transpose(Array(x)), dims...)) :: T
 numerator(a::QQMatrix) = MatrixSpace(ZZ, size(a)...)(ZZ.(denominator(a)*a)) :: ZZMatrix
 
-function frommatrix(x::T) :: Vector{T} where T <: ZZQQMatrix
+function frommatrix(x::T) :: Vector{T} where T <: Mat
     m, n_square = size(x)
     @assert m > 0
     n = exact_sqrt(n_square)
     return collect(MatrixSpace(base_ring(x), n, n).(eachrow(x)))
 end
-Base.eachrow(x::ZZQQMatrix) = eachrow(Array(x))
+Base.eachrow(x::Mat) = eachrow(Array(x))
 exact_sqrt(n::Int) = Int(sqrt(ZZ(n)))
 
-# Sei 𝓐 ⊆ K^{𝑚×𝑚} K-rechts-Algebra, also X∈𝓐 auf dem Modul $M=K^𝑚$ von rechts operierende Matrix.
+raw"""
+    ModHom(M::Hecke.ModAlgAss, A::Mat)
+
+Module homomorphism from $M$ to $M⋅A$. Requires, that $M⋅A$ actually is a submodule of $M$.
+"""
+struct ModHom
+    domain :: Hecke.ModAlgAss
+    codomain :: Hecke.ModAlgAss
+    T :: Mat
+    function ModHom(domain::Hecke.ModAlgAss, A::Mat)
+        @assert is_square(A)
+        m = size(A, 1)
+        H, T = column_hnf_with_transform(A) # A*T == H
+        @vprint :rma "$A ⋅ $T = $H with T⁻¹=$(inv(T))\n"
+        codomain = _submodule(T, domain, rank(H))
+        return new(domain, codomain, T)
+    end
+end
+domain(a::ModHom) = a.domain
+codomain(a::ModHom) = a.codomain
+mat(a::ModHom) = a.T
+_submodule(T::Mat, M::Mod, n::Int) = Amodule(_tosubmodule.([T], Hecke.action_of_gens(M), [n]))
+_tosubmodule(T::Mat, x::Mat, n::Int) = submatrix(right_conjugate(x, T), n)
+image(h::ModHom, x::Mat) = _tosubmodule(mat(h), x, dim(codomain(h)))
+image(h::ModHom, M::Mod) = _submodule(mat(h), M, dim(codomain(h)))
+
+struct SubMod
+    M :: Hecke.ModAlgAss
+    hom :: ModHom
+    SubMod(h::ModHom) = new(h.codomain, h)
+end
+SubMod(M::Hecke.ModAlgAss, A::Mat) = SubMod(ModHom(M, A))
+sub(M::Hecke.ModAlgAss, A::Mat) = SubMod(M, A)
+
+
+# Sei 𝓐 ⊆ K^{𝑚×𝑚} K-rechts-Algebra, jedes X∈𝓐 also auf dem Modul $M=K^𝑚$
+# von rechts operierende Matrix.
 # Ferner sei A∈Z(𝓐) und H=AT die Spalten-HNF von A mit 𝑛 nicht-null-Spalten
-# So operiert X∈𝓐 auf dem Submodul M⋅H = M⋅AT ≅ M⋅A
-# wegen m ↦ mT⁻¹ entsprechend als m * X = mT⁻¹XT
-# Da M⋅H=⨁_{i=1…n}Keᵢ≅Kⁿ Submodul ist, bildet X den Kⁿ auf sich selbst ab, T⁻¹XT ist also von der Form
+# So operiert X∈𝓐 auf M⋅H = M⋅AT ≅ M⋅A (mit m ↦ mT⁻¹) entsprechend als m * X = mT⁻¹XT.
+# Falls M⋅H=⨁_{i=1…n}Keᵢ≅Kⁿ Submodul ist, bildet X den Kⁿ auf sich selbst ab,
+# T⁻¹XT ist dann also von der Form
 # (n×n)   0
 # (k×n) (k×k)
 # mit 𝑘=𝑚−𝑛.
@@ -115,6 +152,17 @@ function sub_morphisms(A::ZZMatrix)
     n = rank(H)
     @assert n < m
     return sub_morphisms(T, n, m)
+end
+
+function sub(M::Mod, A::ZZMatrix)
+    @assert is_square(A)
+    m = size(A, 1)
+    H, T = column_hnf_with_transform(A) # A*T == H
+    @vprint :rma "$A ⋅ $T = $H with T⁻¹=$(inv(T))\n"
+    n = rank(H)
+    @assert n < m
+    to, from = sub_morphisms(A)
+    to(M)
 end
 
 # TᵀAᵀ = Hᵀ ⇔ (AT)ᵀ = Hᵀ ⇔ AT = H
