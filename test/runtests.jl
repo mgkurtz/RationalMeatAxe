@@ -111,4 +111,8 @@ end
         for g in gs[2:3] g[2:3,2:3] .= 0; @test all(g .== 0) end
         for g in gs[4:6] g[4:6,4:6] .= 0; @test all(g .== 0) end
     end
+    @testset "random meataxe input $i" for (i, M) in Iterators.enumerate(Mrands)
+        Mhomogenous = RationalMeatAxe.homogeneous_components(M)
+        Msub = RationalMeatAxe.meataxe(M)
+    end
 end
