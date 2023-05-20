@@ -60,20 +60,19 @@ function homogeneous_components(M::Mod) :: Vector{Mod}
         f1, f2 = s*f1, t*f2
         @vprint :rma "Using multiples $f1 and $f2 summing up to 1\n"
         @assert _1 == 1
-        ss1 = homogeneous_components(M, f1(b))
-        ss2 = homogeneous_components(M, f2(b))
+        ss1 = homogeneous_components(M, f1(QQMatrix(b)))
+        ss2 = homogeneous_components(M, f2(QQMatrix(b)))
         return [ss1; ss2]
     end
     return [M]
 end
 
-function homogeneous_components(M::Mod, A::ZZMatrix) :: Vector{Mod}
+function homogeneous_components(M::Mod, A::QQMatrix) :: Vector{Mod}
     @vprint :rma "### Splitting at\n"
     @v_do :rma display(A)
-    to, from = sub_morphisms(A)
+    MA = sub(M, A)
     Hecke.pushindent()
-    # L = from.(homogeneous_components(to(M)))
-    L = homogeneous_components(to(M))
+    L = homogeneous_components(MA)
     Hecke.popindent()
     return L
 end
@@ -116,6 +115,15 @@ struct ModHom
     domain :: Hecke.ModAlgAss
     codomain :: Hecke.ModAlgAss
     T :: Mat
+    # Sei 𝓐 ⊆ K^{𝑚×𝑚} K-rechts-Algebra, jedes X∈𝓐 also auf dem Modul $M=K^𝑚$
+    # von rechts operierende Matrix.
+    # Ferner sei A∈Z(𝓐) und H=AT die Spalten-HNF von A mit 𝑛 nicht-null-Spalten
+    # So operiert X∈𝓐 auf M⋅H = M⋅AT ≅ M⋅A (mit m ↦ mT⁻¹) entsprechend als m * X = mT⁻¹XT.
+    # Falls M⋅H=⨁_{i=1…n}Keᵢ≅Kⁿ Submodul ist, bildet X den Kⁿ auf sich selbst ab,
+    # T⁻¹XT ist dann also von der Form
+    # (n×n)   0
+    # (k×n) (k×k)
+    # mit 𝑘=𝑚−𝑛.
     function ModHom(domain::Hecke.ModAlgAss, A::Mat)
         @assert is_square(A)
         m = size(A, 1)
@@ -142,47 +150,8 @@ SubMod(M::Hecke.ModAlgAss, A::Mat) = SubMod(ModHom(M, A))
 sub(M::Hecke.ModAlgAss, A::Mat) = codomain(ModHom(M, A))
 
 
-# Sei 𝓐 ⊆ K^{𝑚×𝑚} K-rechts-Algebra, jedes X∈𝓐 also auf dem Modul $M=K^𝑚$
-# von rechts operierende Matrix.
-# Ferner sei A∈Z(𝓐) und H=AT die Spalten-HNF von A mit 𝑛 nicht-null-Spalten
-# So operiert X∈𝓐 auf M⋅H = M⋅AT ≅ M⋅A (mit m ↦ mT⁻¹) entsprechend als m * X = mT⁻¹XT.
-# Falls M⋅H=⨁_{i=1…n}Keᵢ≅Kⁿ Submodul ist, bildet X den Kⁿ auf sich selbst ab,
-# T⁻¹XT ist dann also von der Form
-# (n×n)   0
-# (k×n) (k×k)
-# mit 𝑘=𝑚−𝑛.
-function sub_morphisms(A::ZZMatrix)
-    m = size(A, 1)
-    @assert m == size(A, 2)
-    H, T = column_hnf_with_transform(A) # AT=H
-    @vprint :rma "$A ⋅ $T = $H with T⁻¹=$(inv(T))\n"
-    n = rank(H)
-    @assert n < m
-    return sub_morphisms(T, n, m)
-end
-
-function sub(M::Mod, A::ZZMatrix)
-    @assert is_square(A)
-    m = size(A, 1)
-    H, T = column_hnf_with_transform(A) # A*T == H
-    @vprint :rma "$A ⋅ $T = $H with T⁻¹=$(inv(T))\n"
-    n = rank(H)
-    @assert n < m
-    to, from = sub_morphisms(A)
-    to(M)
-end
-
 # TᵀAᵀ = Hᵀ ⇔ (AT)ᵀ = Hᵀ ⇔ AT = H
 column_hnf_with_transform(A) = transpose.(hnf_with_transform(transpose(A)))
-
-function sub_morphisms(T::ZZMatrix, n::Int, m::Int)
-    transform_matrix(x) = (@vprint :rma 2 "T⁻¹ ⋅ $x ⋅ T = $(right_conjugate(x, T))\n"; submatrix(right_conjugate(x, T), n))
-    #TODO: Geht `embedmatrix` überhaupt? Wohl kaum, schließlich müssen wir wieder in unserem Modul rauskommen.
-    backtransform_matrix(x) = left_conjugate(embedmatrix(x, m), T)
-    to(M) = Amodule(transform_matrix.(Hecke.action_of_gens(M)))
-    from(M) = Amodule(backtransform_matrix.(Hecke.action_of_gens(M)))
-    return to, from
-end
 
 right_conjugate(a, t) = inv(t) * a * t
 left_conjugate(a, t) = t * a * inv(t)
