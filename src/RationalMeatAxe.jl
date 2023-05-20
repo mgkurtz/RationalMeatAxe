@@ -42,6 +42,7 @@ function homogeneous_components(M::Mod) :: Vector{Mod}
     B = basis_of_center_of_endomorphism_ring(M)
     B === nothing && return [M]
     dim_of_center = length(B)
+    QQx, x = polynomial_ring(QQ, :x)
     @vprint :rma "## Iterating through basis $B of the center of the endomorphism ring\n"
     for b in B
         @vprint :rma "Current basis element is\n"
@@ -54,6 +55,11 @@ function homogeneous_components(M::Mod) :: Vector{Mod}
         f1 = p^e
         f2 = divexact(f, f1)
         @vprint :rma "Minimal polynomial is $f with coprime factors $f1 and $f2\n"
+        f1, f2 = QQx(f1), QQx(f2)
+        _1, s, t = gcdx(f1, f2)
+        f1, f2 = s*f1, t*f2
+        @vprint :rma "Using multiples $f1 and $f2 summing up to 1\n"
+        @assert _1 == 1
         ss1 = homogeneous_components(M, f1(b))
         ss2 = homogeneous_components(M, f2(b))
         return [ss1; ss2]
