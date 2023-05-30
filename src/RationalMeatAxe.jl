@@ -179,19 +179,22 @@ See also [`homogeneous_components(::Mod)`](@ref).
 """
 function split_homogeneous(M::Mod)
     endM, endMhom = Hecke.endomorphism_algebra(M)
-    o = maximal_order(endM)
-    si = schur_index(endM)
-    d = divexact(dim(endM), dim(center(endM)[1]))
+    A, h = Hecke._as_algebra_over_center(endM)
+    si = schur_index(A)
+    d = dim(A)
     m = divexact(sqrt(d), si)
     m == 1 && return [M]
-    s = maximal_order_basis_search(o)
+    s = maximal_order_basis_search(endM)
     fs = factor(minpoly(s))
     @assert length(fs) > 1
     singularElements = (endMhom((p^e)(s)) for (p, e) in fs)
     return vcat(split_homogeneous.(kernel.(singularElements)))
 end
 
-function maximal_order_basis_search(v::Vector{AlgElem})
+maximal_order_basis_search(A::Hecke.AbsAlgAss) = maximal_order_basis_search(maximal_order(A))
+maximal_order_basis_search(o::Hecke.AlgAssAbsOrd) = maximal_order_basis_search(o.basis_alg)
+
+function maximal_order_basis_search(v::Vector)
     (a = find(is_split, v)) !== nothing && return a
     for b1 in v, b2 in v
         is_split(b1 * b2) && return b1 * b2
@@ -203,8 +206,8 @@ function maximal_order_basis_search(v::Vector{AlgElem})
     return a
 end
 
-find(f, v) = (i = findfirst(f, v); i === nothing ? nothing : f[i])
+find(f, v) = (i = findfirst(f, v); i === nothing ? nothing : v[i])
 
-is_split(a::AlgElem) = !is_irreducible(minpoly(a))
+is_split(a) = !is_irreducible(minpoly(a))
 
 end
