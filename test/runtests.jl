@@ -39,6 +39,7 @@ Mrands = [RandomAlgebras.rand_sum_of_matrix_algebras(make(QQ, -i:i), i, i, i) fo
 if false
 @testset "Hecke.jl" begin
     @testset "transitive_group(8,5) on QQ^4" begin
+        @test length(Hecke.decompose(Hecke.endomorphism_algebra(M1))) == 1
         @test_throws "Too many attempts" Hecke.meataxe(M1)
         @test Hecke.composition_factors(M1) skip=true
         @test Hecke.composition_factors_with_multiplicity(M1) skip=true
@@ -51,7 +52,6 @@ if false
     end
 end
 end
-
 
 @testset "RationalMeatAxe.jl" begin
     @testset "center of End: $i" for (i, M) in Iterators.enumerate(Mrands)
