@@ -89,7 +89,7 @@ Mat = Union{ZZMatrix, QQMatrix}
 
 Hecke.lll(a::Vector{ZZMatrix}) = isempty(a) ? a : frommatrix(lll(asmatrix(a)), size(a[1])...)
 lll_saturate(a::Vector{ZZMatrix}) = isempty(a) ? a : frommatrix(lll(saturate(asmatrix(a))), size(a[1])...)
-lll_saturate(a::Vector{QQMatrix}) = lll_saturate(numerator.(a))
+lll_saturate(a::Vector{QQMatrix}) = QQMatrix.(lll_saturate(numerator.(a)))
 lll_saturate(v::Vector{T}) where T<:NCRingElem = isempty(v) ? v : parent(v[1]).(lll_saturate(matrix.(v))) :: Vector{T}
 
 
@@ -214,7 +214,7 @@ function maximal_order_basis_search(v::Vector)
         is_split(b1 + b2) && return b1 + b2
     end
     while a === nothing
-        a = find(is_split, lll([rand(v) * rand(v) for _ in eachindex(v)]))
+        a = find(is_split, lll_saturate([rand(v) * rand(v) for _ in eachindex(v)]))
     end
     return a
 end
