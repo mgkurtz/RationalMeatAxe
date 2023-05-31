@@ -90,21 +90,30 @@ end
 
 Mat = Union{ZZMatrix, QQMatrix}
 
-function asmatrix(v::Vector{ZZMatrix}) :: ZZMatrix
-    @req !isempty(v) "Vector must be non-empty"
-    return reduce(vcat, reshape.(v, 1, :))
-end
-reshape(x::T, dims...) where T<:Mat = matrix(base_ring(x), reshape(transpose(Array(x)), dims...)) :: T
-numerator(a::QQMatrix) = MatrixSpace(ZZ, size(a)...)(ZZ.(denominator(a)*a)) :: ZZMatrix
+lll(a::Vector{ZZMatrix}) = isempty(a) ? a : frommatrix(lll(asmatrix(a)), size(a[1])...)
+lll_saturate(a::Vector{ZZMatrix}) = isempty(a) ? a : frommatrix(lll(saturate(asmatrix(a))), size(a[1])...)
+lll_saturate(a::Vector{QQMatrix}) = lll_saturate(numerator.(a))
 
-function frommatrix(x::T) :: Vector{T} where T <: Mat
-    m, n_square = size(x)
-    @assert m > 0
-    n = exact_sqrt(n_square)
-    return collect(MatrixSpace(base_ring(x), n, n).(eachrow(x)))
+asmatrix(v::Vector{T}) where T <: MatElem = reduce(vcat, newshape.(v, 1, :)) :: T
+
+frommatrix(a::T, r::Int, c::Int) where T <: MatElem = T[newshape(x, r, c) for x in eachrow(a)]
+
+newshape(a::MatElem, dims::Union{Int, Colon}...) = newshape(a, dims)
+newshape(a::MatElem, dims::NTuple{2, Union{Int, Colon}}) = newshape(a, Base._reshape_uncolon(a, dims))
+
+# Iterate column wise, probably somewhat inefficient, as flint stores matrices rowwise.
+function newshape(a::T, dims::NTuple{2, Int}) ::T where T<:MatElem
+    b = similar(a, dims...)
+    for (I, x) in zip(CartesianIndices(dims), a)
+        b[I] = x
+    end
+    return b
 end
-Base.eachrow(x::Mat) = eachrow(Array(x))
-exact_sqrt(n::Int) = Int(sqrt(ZZ(n)))
+
+Base.eachrow(a::MatElem) = (view(a, i, :) for i in axes(a, 1))
+Base.eachcol(a::MatElem) = (view(a, :, i) for i in axes(a, 2))
+
+numerator(a::QQMatrix) = MatrixSpace(ZZ, size(a)...)(ZZ.(denominator(a)*a)) :: ZZMatrix
 
 raw"""
     ModHom(M::Hecke.ModAlgAss, A::Mat)
