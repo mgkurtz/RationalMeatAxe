@@ -77,10 +77,7 @@ function homogeneous_components(M::Mod, A::QQMatrix) :: Vector{Mod}
     return L
 end
 
-function basis_of_center_of_endomorphism_ring(M::Mod)
-    z = center_of_endomorphism_ring(M)
-    return frommatrix(lll(saturate(asmatrix(z))))
-end
+basis_of_center_of_endomorphism_ring(M::Mod) = lll_saturate(center_of_endomorphism_ring(M))
 
 function center_of_endomorphism_ring(M::Mod)
     endM, endMhom = Hecke.endomorphism_algebra(M)
@@ -127,15 +124,13 @@ struct ModHom
     # Sei 𝓐 ⊆ K^{𝑚×𝑚} K-rechts-Algebra, jedes X∈𝓐 also auf dem Modul $M=K^𝑚$
     # von rechts operierende Matrix.
     # Ferner sei A∈Z(𝓐) und H=AT die Spalten-HNF von A mit 𝑛 nicht-null-Spalten
-    # So operiert X∈𝓐 auf M⋅H = M⋅AT ≅ M⋅A (mit m ↦ mT⁻¹) entsprechend als m * X = mT⁻¹XT.
+    # So operiert X∈𝓐 auf M⋅H = M⋅AT ≅ M⋅A (mit m ↦ mT⁻¹) entsprechend als M⋅H ∋ m * X = mT⁻¹XT ∈ M⋅A.
     # Falls M⋅H=⨁_{i=1…n}Keᵢ≅Kⁿ Submodul ist, bildet X den Kⁿ auf sich selbst ab,
     # T⁻¹XT ist dann also von der Form
     # (n×n)   0
     # (k×n) (k×k)
     # mit 𝑘=𝑚−𝑛.
     function ModHom(domain::Hecke.ModAlgAss, A::Mat)
-        @assert is_square(A)
-        m = size(A, 1)
         H, T = column_hnf_with_transform(A) # A*T == H
         @vprint :rma "$A ⋅ $T = $H with T⁻¹=$(inv(T))\n"
         codomain = _submodule(T, domain, rank(H))
@@ -146,7 +141,7 @@ domain(a::ModHom) = a.domain
 codomain(a::ModHom) = a.codomain
 mat(a::ModHom) = a.T
 _submodule(T::Mat, M::Mod, n::Int) = Amodule(_tosubmodule.([T], Hecke.action_of_gens(M), [n]))
-_tosubmodule(T::Mat, x::Mat, n::Int) = submatrix(right_conjugate(x, T), n)
+_tosubmodule(T::Mat, x::Mat, n::Int) = submatrix(_right_conjugate(x, T), n)
 image(h::ModHom, x::Mat) = _tosubmodule(mat(h), x, dim(codomain(h)))
 image(h::ModHom, M::Mod) = _submodule(mat(h), M, dim(codomain(h)))
 
@@ -162,8 +157,8 @@ sub(M::Hecke.ModAlgAss, A::Mat) = codomain(ModHom(M, A))
 # TᵀAᵀ = Hᵀ ⇔ (AT)ᵀ = Hᵀ ⇔ AT = H
 column_hnf_with_transform(A) = transpose.(hnf_with_transform(transpose(A)))
 
-right_conjugate(a, t) = inv(t) * a * t
-left_conjugate(a, t) = t * a * inv(t)
+_right_conjugate(a, t) = size(t) == size(a) ? inv(t) * a * t : _right_conjugate!(deepcopy(a), t)
+_right_conjugate!(a, t) = (a[axes(t)...] = inv(t) * a[axes(t)...] * t; a)
 
 submatrix(A::QQMatrix, n::Int) = (@assert A[1:n, n+1:end] == 0; A[1:n, 1:n])
 
@@ -187,8 +182,9 @@ The input $M$ needs to be homogeneous, i.e. allow such a decomposition.
 See also [`homogeneous_components(::Mod)`](@ref).
 """
 function split_homogeneous(M::Mod)
-    endM, endMhom = Hecke.endomorphism_algebra(M)
-    A, h = Hecke._as_algebra_over_center(endM)
+    endM, endM_to_actual_endM = Hecke.endomorphism_algebra(M)
+    endMAA, endMAA_to_endM = AlgAss(endM)
+    A, h = Hecke._as_algebra_over_center(endMAA)
     si = schur_index(A)
     d = dim(A)
     m = divexact(sqrt(d), si)
@@ -196,9 +192,15 @@ function split_homogeneous(M::Mod)
     s = maximal_order_basis_search(endM)
     fs = factor(minpoly(s))
     @assert length(fs) > 1
-    singularElements = (endMhom((p^e)(s)) for (p, e) in fs)
+    # TODO where do we compute the kernel and how do we get back to `M`?
+    # kernel(::ModAlgHom) is not implemented :(
+    # kernel(::MatElem) gives `(k, K)` with `K`s columns spanning the kernel
+    # We use `sub` to get the submodules.
+    singularElements = (endM_to_actual_endM((p^e)(s)) for (p, e) in fs)
     return vcat(split_homogeneous.(kernel.(singularElements)))
 end
+
+Hecke.kernel(a::Hecke.ModAlgHom) = sub(domain(a), kernel(matrix(a))[2])
 
 maximal_order_basis_search(A::Hecke.AbsAlgAss) = maximal_order_basis_search(maximal_order(A))
 maximal_order_basis_search(o::Hecke.AlgAssAbsOrd) = maximal_order_basis_search(o.basis_alg)
@@ -210,10 +212,12 @@ function maximal_order_basis_search(v::Vector)
         is_split(b1 + b2) && return b1 + b2
     end
     while a === nothing
-        a = find(is_split, lll(rand(v) * rand(v) for _ in eachindex(v)))
+        a = find(is_split, lll([rand(v) * rand(v) for _ in eachindex(v)]))
     end
     return a
 end
+
+lll_saturate(v::Vector{T}) where T<:NCRingElem = isempty(v) ? v : parent(v[1]).(lll_saturate(matrix.(v))) :: Vector{T}
 
 find(f, v) = (i = findfirst(f, v); i === nothing ? nothing : v[i])
 
