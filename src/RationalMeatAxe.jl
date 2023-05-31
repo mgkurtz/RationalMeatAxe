@@ -221,6 +221,6 @@ end
 
 find(f, v) = (i = findfirst(f, v); i === nothing ? nothing : v[i])
 
-is_split(a) = !is_irreducible(minpoly(a))
+is_split(a) = length(factor(minpoly(a))) > 1
 
 end
