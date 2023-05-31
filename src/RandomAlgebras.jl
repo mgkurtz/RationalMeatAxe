@@ -8,37 +8,49 @@ module RandomAlgebras
 using RandomExtensions
 using Hecke
 
-rand_sum_of_matrix_algebras(entries, args...) =
-    Amodule(rand_change_basis(entries,
-        rand_sum_of_matrix_algebras_gens(entries, args...)))
+rand_sum_of_matrix_algebras(R, entries, args...) =
+    Amodule(rand_change_basis(make(R, entries),
+        sum_of_matrix_algebras_gens(R, args...)))
 
 raw"""
-    sum_of_matrix_algebras_gens(entries, number, max_size, max_gens)
+    sum_of_matrix_algebras_gens(R, sizes::Vector{Int})
 
-$⨁_{i=1}^n A_i$ where the $A_i$ are some matrix algebras with matrices up to `max_size` and entries randomly taken from `entries`.
+Two matrices generating an algebra, which contains one subalgebra isomorphic to the algebra of $n\times n$-matrices for each `n` in `sizes`.
 
 # Examples
 
 ```jldoctest
-julia> sum_of_matrix_algebras_gens(make(ZZ, -9:9), 2, 3, 5)
-// up to 10 block diagonal matrices with two blocks each of size up to 3 and only one non-zero block.
+julia> A, B = sum_of_matrix_algebras_gens(QQ, [1, 1, 2, 3]); A
+[1   0   0   0   0   0   0]
+[0   1   0   0   0   0   0]
+[0   0   1   0   0   0   0]
+[0   0   0   0   0   0   0]
+[0   0   0   0   1   0   0]
+[0   0   0   0   0   0   0]
+[0   0   0   0   0   0   0]
+
+julia> B
+[1   0   0   0   0   0   0]
+[0   1   0   0   0   0   0]
+[0   0   0   1   0   0   0]
+[0   0   1   0   0   0   0]
+[0   0   0   0   0   1   0]
+[0   0   0   0   0   0   1]
+[0   0   0   0   1   0   0]
 
 ```
 """
-rand_sum_of_matrix_algebras_gens(entries, number, max_size, max_gens) =
-    rand_sum_of_matrix_algebras_gens(
-        entries, rand(make(Pair, 1:max_size, 1:max_gens), number))
-
-function rand_sum_of_matrix_algebras_gens(entries, sizes_and_amount::Vector{Pair{Int, Int}})
-    offsets = cumsum(first.(sizes_and_amount))
-    ranges = [a+1:b for (a,b) in zip([0;offsets[1:end-1]], offsets)]
-    ranges_and_amount = (r => a for (r, (_, a)) in zip(ranges, sizes_and_amount))
-    return rand_sum_of_matrix_algebras_gens(entries, ranges_and_amount, offsets[end])
+function sum_of_matrix_algebras_gens(R, sizes::Vector{<:Pair{Int}})
+    filter!(((x, y),) -> x > 0, sizes)
+    isempty(sizes) && return matrix(R, [;;]), matrix(R, [;;])
+    As = [(A = zero_matrix(R, n, n); A[1, 1] = a; A) for (n, a) in sizes]
+    Bs = [identity_matrix(R, n)[[2:end; begin], :] for (n, _) in sizes]
+    return block_diagonal_matrix(As), block_diagonal_matrix(Bs)
 end
 
-rand_sum_of_matrix_algebras_gens(
-        entries, ranges_and_amount, total_size::Int) =
-    [rand_mat(entries, r, total_size) for (r, a) in ranges_and_amount for _ in 1:a]
+sum_of_matrix_algebras_gens(R, sizes) = sum_of_matrix_algebras_gens(R, _to_pairs.(sizes, [one(R)]))
+_to_pairs(a::Pair, defaultvalue) = a
+_to_pairs(a, defaultvalue) = a => defaultvalue
 
 """
     rand_change_basis(matrices)
@@ -47,12 +59,11 @@ Change with some random basis.
 """
 function rand_change_basis(entries, matrices)
     isempty(matrices) && return matrices
-    matrices = matrices
     n = size(matrices[1], 1)
     for m in matrices @assert size(m) == (n, n) end
     n == 0 && return matrices
 
-    R = parent(matrices[1][1])
+    R = parent(matrices[1][1, 1])
     M = MatrixSpace(R, n, n)
     C = rand_invertible(make(M, entries))
 
@@ -62,17 +73,6 @@ end
 function rand_invertible(R)
     while (x = rand(R)) |> !is_invertible end
     return x
-end
-
-raw"""
-    rand_mat(entries, position::UnitRange{Int}, n::Int) -> Matrix{eltype(entries)}
-
-Some $n×n$ matrix `A` with random entries in `A[position, position]` and zero everywhere else.
-"""
-function rand_mat(entries, position::UnitRange{Int}, n::Int)
-    A = zeros(eltype(entries), n, n)
-    A[position, position] = rand(entries, length(position), length(position))
-    return A
 end
 
 end

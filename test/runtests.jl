@@ -1,6 +1,6 @@
 using RationalMeatAxe
 using RationalMeatAxe.RandomAlgebras: RandomAlgebras,
-    rand_sum_of_matrix_algebras, rand_sum_of_matrix_algebras_gens, rand_invertible
+    rand_sum_of_matrix_algebras, sum_of_matrix_algebras_gens, rand_invertible
 using RandomExtensions
 using Hecke
 using Test
@@ -34,7 +34,7 @@ gens2 = MatrixSpace(QQ,3,3).([[0 1 0;1 0 0;0 0 1], [0 1 0;0 0 1;1 0 0]])
 M2 = Hecke.Amodule(gens2)
 M2sub1gens = MatrixSpace(QQ,1,1).([[1],[1]])
 
-Mrands = [RandomAlgebras.rand_sum_of_matrix_algebras(make(QQ, -i:i), i, i, i) for i in 1:3]
+Mrands = [RandomAlgebras.rand_sum_of_matrix_algebras(QQ, -i:i, [a for j in 1:i for a in 1:j]) for i in 1:3]
 
 if false
 @testset "Hecke.jl" begin
@@ -73,7 +73,7 @@ end
         a, b = 3, 4
         entries = -9:9
 
-        gs = rand_sum_of_matrix_algebras_gens(make(ZZ, entries), [a => 2, b => 2])
+        gs = sum_of_matrix_algebras_gens(QQ, [a, b])
         S = MatrixSpace(QQ, a+b, a+b)
         T = rand_invertible(make(S, entries))
         A = zero(S)
@@ -104,12 +104,6 @@ end
             @test M2sub1gens in Hecke.action_of_gens.(Msub)
             @test sort(dim.(Msub)) == [1,2]
         end
-    end
-    @testset "rand_sum_of_matrix_algebras_gens" begin
-        gs = rand_sum_of_matrix_algebras_gens(make(ZZ, -9:9), [1 => 1, 2 => 2, 3 => 3])
-        gs[1][1,1] = 0; @test all(gs[1] .== 0)
-        for g in gs[2:3] g[2:3,2:3] .= 0; @test all(g .== 0) end
-        for g in gs[4:6] g[4:6,4:6] .= 0; @test all(g .== 0) end
     end
     @testset "random meataxe input $i" for (i, M) in Iterators.enumerate(Mrands)
         Mhomogenous = RationalMeatAxe.homogeneous_components(M)
