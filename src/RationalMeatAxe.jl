@@ -194,12 +194,8 @@ function split_homogeneous(M::Mod)
     s = maximal_order_basis_search(endM)
     fs = factor(minpoly(s))
     @assert length(fs) > 1
-    # TODO where do we compute the kernel and how do we get back to `M`?
-    # kernel(::ModAlgHom) is not implemented :(
-    # kernel(::MatElem) gives `(k, K)` with `K`s columns spanning the kernel
-    # We use `sub` to get the submodules.
     singularElements = (endM_to_actual_endM((p^e)(s)) for (p, e) in fs)
-    return vcat(split_homogeneous.(kernel.(singularElements)))
+    return reduce(vcat, split_homogeneous.(kernel.(singularElements)))
 end
 
 Hecke.kernel(a::Hecke.ModAlgHom) = sub(domain(a), kernel(matrix(a))[2])
