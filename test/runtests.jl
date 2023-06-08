@@ -34,7 +34,7 @@ gens2 = MatrixSpace(QQ,3,3).([[0 1 0;1 0 0;0 0 1], [0 1 0;0 0 1;1 0 0]])
 M2 = Hecke.Amodule(gens2)
 M2sub1gens = MatrixSpace(QQ,1,1).([[1],[1]])
 
-Mrands = [RandomAlgebras.rand_sum_of_matrix_algebras(QQ, -i:i, [a for j in 1:i for a in 1:j]) for i in 1:3]
+Mrands = [RandomAlgebras.rand_sum_of_matrix_algebras(QQ, -i:i, [a for j in 1:i for a in 1:j]) for i in 1:5]
 
 if false
 @testset "Hecke.jl" begin
@@ -53,60 +53,60 @@ if false
 end
 end
 
-@testset "RationalMeatAxe.jl" begin
-    @testset "center of End: $i" for (i, M) in Iterators.enumerate(Mrands)
-        z = RationalMeatAxe.center_of_endomorphism_ring(M)
-        for a in z, m in M.action_of_gens
-            @test a * m == m * a
-        end
+@testset "center of End: $i" for (i, M) in Iterators.enumerate(Mrands)
+    z = RationalMeatAxe.center_of_endomorphism_ring(M)
+    for a in z, m in M.action_of_gens
+        @test a * m == m * a
     end
+end
 
-    @testset "basis of center of End: $i" for (i, M) in Iterators.enumerate(Mrands)
-        B = RationalMeatAxe.basis_of_center_of_endomorphism_ring(M)
-        @test B !== nothing
-        for a in B, m in M.action_of_gens
-            @test a * m == m * a
-        end
+@testset "basis of center of End: $i" for (i, M) in Iterators.enumerate(Mrands)
+    B = RationalMeatAxe.basis_of_center_of_endomorphism_ring(M)
+    @test B !== nothing
+    for a in B, m in M.action_of_gens
+        @test a * m == m * a
     end
+end
 
-    @testset "submodules" begin
-        a, b = 3, 4
-        entries = -9:9
+@testset "submodules" begin
+    a, b = 3, 4
+    entries = -9:9
 
-        gs = sum_of_matrix_algebras_gens(QQ, [a, b])
-        S = MatrixSpace(QQ, a+b, a+b)
-        T = rand_invertible(make(S, entries))
-        A = zero(S)
-        A[1:a,1:a] = identity_matrix(QQ, a)
-        gs_ = [inv(T)] .* S.(gs) .* [T]
-        A_ = inv(T) * S(A) * T
+    gs = sum_of_matrix_algebras_gens(QQ, [a, b])
+    S = MatrixSpace(QQ, a+b, a+b)
+    T = rand_invertible(make(S, entries))
+    A = zero(S)
+    A[1:a,1:a] = identity_matrix(QQ, a)
+    gs_ = [inv(T)] .* S.(gs) .* [T]
+    A_ = inv(T) * S(A) * T
 
-        M = Amodule(gs_)
-        M2 = RationalMeatAxe.sub(M, A_) # implicitly test some assertions
+    M = Amodule(gs_)
+    M2 = RationalMeatAxe.sub(M, A_) # implicitly test some assertions
 
-        @test dim(M2) == a
+    @test dim(M2) == a
+end
+
+@testset "transitive_group(8,5) on QQ^4" begin
+    @test RationalMeatAxe.homogeneous_components(M1) == [M1]
+    @test RationalMeatAxe.meataxe(M1) == [M1]
+end
+
+@testset "Sym(3) on QQ^3" begin
+    @testset "homogeneous components" begin
+        Mhomogenous = RationalMeatAxe.homogeneous_components(M2)
+        @test length(Mhomogenous) == 2
+        @test M2sub1gens in Hecke.action_of_gens.(Mhomogenous)
+        @test sort(dim.(Mhomogenous)) == [1,2]
     end
+    @testset "meataxe" begin
+        Msub = RationalMeatAxe.meataxe(M2)
+        @test length(Msub) == 2
+        @test M2sub1gens in Hecke.action_of_gens.(Msub)
+        @test sort(dim.(Msub)) == [1,2]
+    end
+end
 
-    @testset "transitive_group(8,5) on QQ^4" begin
-        @test RationalMeatAxe.homogeneous_components(M1) == [M1]
-        @test RationalMeatAxe.meataxe(M1) == [M1]
-    end
-    @testset "Sym(3) on QQ^3" begin
-        @testset "homogeneous components" begin
-            Mhomogenous = RationalMeatAxe.homogeneous_components(M2)
-            @test length(Mhomogenous) == 2
-            @test M2sub1gens in Hecke.action_of_gens.(Mhomogenous)
-            @test sort(dim.(Mhomogenous)) == [1,2]
-        end
-        @testset "meataxe" begin
-            Msub = RationalMeatAxe.meataxe(M2)
-            @test length(Msub) == 2
-            @test M2sub1gens in Hecke.action_of_gens.(Msub)
-            @test sort(dim.(Msub)) == [1,2]
-        end
-    end
-    @testset "random meataxe input $i" for (i, M) in Iterators.enumerate(Mrands)
-        Mhomogenous = RationalMeatAxe.homogeneous_components(M)
-        Msub = RationalMeatAxe.meataxe(M)
-    end
+@testset "random meataxe input $i" for (i, M) in Iterators.enumerate(Mrands)
+    Mhomogenous = RationalMeatAxe.homogeneous_components(M)
+    Msub = RationalMeatAxe.meataxe(M)
 end
