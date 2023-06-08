@@ -117,50 +117,45 @@ numerator(a::QQMatrix) = MatrixSpace(ZZ, size(a)...)(ZZ.(denominator(a)*a)) :: Z
 raw"""
     ModHom(M::Hecke.ModAlgAss, A::Mat)
 
-Module homomorphism from $M$ to $M⋅A$. Requires, that $M⋅A$ actually is a submodule of $M$.
+Module automorphism from $M$ to $M⋅T$, where $AT=H$ is the HNF of $A$.
 """
 struct ModHom
-    domain :: Hecke.ModAlgAss
-    codomain :: Hecke.ModAlgAss
+    rank :: Int
     T :: Mat
+    invT :: Mat
+    domain :: Hecke.ModAlgAss
     # Sei 𝓐 ⊆ K^{𝑚×𝑚} K-rechts-Algebra, jedes X∈𝓐 also auf dem Modul $M=K^𝑚$
     # von rechts operierende Matrix.
-    # Ferner sei A∈Z(𝓐) und H=AT die Spalten-HNF von A mit 𝑛 nicht-null-Spalten
-    # So operiert X∈𝓐 auf M⋅H = M⋅AT ≅ M⋅A (mit m ↦ mT⁻¹) entsprechend als M⋅H ∋ m * X = mT⁻¹XT ∈ M⋅A.
-    # Falls M⋅H=⨁_{i=1…n}Keᵢ≅Kⁿ Submodul ist, bildet X den Kⁿ auf sich selbst ab,
-    # T⁻¹XT ist dann also von der Form
-    # (n×n)   0
-    # (k×n) (k×k)
-    # mit 𝑘=𝑚−𝑛.
+    # Ferner sei A∈End_K(𝓐), also AX=XA und H=AT die Spalten-HNF von A mit 𝑛 nicht-null-Spalten.
+    # Vermittels des Isomorphismus M⋅A → M⋅H=M⋅AT, m ↦ mT operiert X auf m∈M⋅H als mT⁻¹XT.
+    # Nun hat HT⁻¹XT = AXT = XAT = XH ebenfalls nur n nicht-null-Spalten, ist also von der Form
+    # (m×n)   0.
     function ModHom(domain::Hecke.ModAlgAss, A::Mat)
-        H, T = column_hnf_with_transform(A) # A*T == H
-        @vprint :rma "$A ⋅ $T = $H with T⁻¹=$(inv(T))\n"
-        codomain = _submodule(T, domain, rank(H))
-        return new(domain, codomain, T)
+        H, T = hnf_with_transform(transpose(A))
+        T = transpose!(T)
+        return new(Hecke.rank_of_ref(H), T, inv(T), domain)
     end
 end
 domain(a::ModHom) = a.domain
-codomain(a::ModHom) = a.codomain
+codomain(a::ModHom) = image(a, a.domain)
 mat(a::ModHom) = a.T
-_submodule(T::Mat, M::Mod, n::Int) = Amodule(_tosubmodule.([T], Hecke.action_of_gens(M), [n]))
-_tosubmodule(T::Mat, x::Mat, n::Int) = submatrix(_right_conjugate(x, T), n)
-image(h::ModHom, x::Mat) = _tosubmodule(mat(h), x, dim(codomain(h)))
-image(h::ModHom, M::Mod) = _submodule(mat(h), M, dim(codomain(h)))
+image(h::ModHom, x::Mat) = submatrix(h.invT * x * h.T, h.rank)
+image(h::ModHom, M::Mod) = Amodule(image.((h,), Hecke.action_of_gens(M)))
 
 struct SubMod
     M :: Hecke.ModAlgAss
     hom :: ModHom
-    SubMod(h::ModHom) = new(h.codomain, h)
+    SubMod(h::ModHom) = new(codomain(h), h)
 end
 SubMod(M::Hecke.ModAlgAss, A::Mat) = SubMod(ModHom(M, A))
 sub(M::Hecke.ModAlgAss, A::Mat) = codomain(ModHom(M, A))
 
+ModHom(a::Hecke.ModAlgHom) = ModHom(domain(a), matrix(a))
+sub(a::Hecke.ModAlgHom) = codomain(ModHom(a))
+
 
 # TᵀAᵀ = Hᵀ ⇔ (AT)ᵀ = Hᵀ ⇔ AT = H
 column_hnf_with_transform(A) = transpose.(hnf_with_transform(transpose(A)))
-
-_right_conjugate(a, t) = size(t) == size(a) ? inv(t) * a * t : _right_conjugate!(deepcopy(a), t)
-_right_conjugate!(a, t) = (a[axes(t)...] = inv(t) * a[axes(t)...] * t; a)
 
 submatrix(A::QQMatrix, n::Int) = (@assert A[1:n, n+1:end] == 0; A[1:n, 1:n])
 
@@ -195,7 +190,7 @@ function split_homogeneous(M::Mod)
     fs = factor(minpoly(s))
     @assert length(fs) > 1
     singularElements = (endM_to_actual_endM((p^e)(s)) for (p, e) in fs)
-    return reduce(vcat, split_homogeneous.(kernel.(singularElements)))
+    return reduce(vcat, split_homogeneous.(sub.(singularElements)))
 end
 
 Hecke.kernel(a::Hecke.ModAlgHom) = sub(domain(a), kernel(matrix(a))[2])
@@ -210,7 +205,7 @@ function maximal_order_basis_search(v::Vector)
         is_split(b1 + b2) && return b1 + b2
     end
     while a === nothing
-        a = find(is_split, lll_saturate([rand(v) * rand(v) for _ in eachindex(v)]))
+        a = find(is_split, lll_saturate([x * rand(v) for x in v]))
     end
     return a
 end
