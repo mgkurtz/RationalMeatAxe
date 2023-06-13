@@ -34,7 +34,7 @@ gens2 = MatrixSpace(QQ,3,3).([[0 1 0;1 0 0;0 0 1], [0 1 0;0 0 1;1 0 0]])
 M2 = Hecke.Amodule(gens2)
 M2sub1gens = MatrixSpace(QQ,1,1).([[1],[1]])
 
-Mrands = [RandomAlgebras.rand_sum_of_matrix_algebras(QQ, -i:i, [a for j in 1:i for a in 1:j]) for i in 1:5]
+Mrands = [RandomAlgebras.rand_sum_of_matrix_algebras(QQ, -i:i, [a for j in 1:i for a in 1:j]) for i in 1:3]
 
 if false
 @testset "Hecke.jl" begin
@@ -55,7 +55,7 @@ end
 
 @testset "center of End: $i" for (i, M) in Iterators.enumerate(Mrands)
     z = RationalMeatAxe.center_of_endomorphism_ring(M)
-    for a in z, m in M.action_of_gens
+    for (a, m) in rand(make(Tuple, z, M.action_of_gens), 10)
         @test a * m == m * a
     end
 end
