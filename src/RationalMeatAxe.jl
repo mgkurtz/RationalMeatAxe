@@ -79,7 +79,11 @@ end
 
 basis_of_center_of_endomorphism_ring(M::Mod) = lll_saturate(center_of_endomorphism_ring(M))
 
-function center_of_endomorphism_ring(M::Mod)
+# TODO improve this
+# 1. build up modularly
+# 2. make modular case clever
+center_of_endomorphism_ring(M::Mod) = naive_center_of_endomorphism_ring(M)
+function naive_center_of_endomorphism_ring(M::Mod)
     endM, endMhom = Hecke.endomorphism_algebra(M)
     z, zhom = center(endM)
     return numerator.(matrix.(endMhom.(zhom.(basis(z)))))
