@@ -192,8 +192,11 @@ function split_homogeneous(M::Mod)
     d = dim(A)
     m = divexact(sqrt(d), si)
     m == 1 && return [M]
-    s_inA = maximal_order_basis_search(maximal_order(A), A_to_endM)
-    s = endMAA_to_endM(A_to_endMAA(s_inA))
+    # TODO: Somehow reuse existing structure information, ie
+    # maximal_order and possibly multiplication table
+    # s_inA = maximal_order_basis_search(maximal_order(A), A_to_endM)
+    # s = endMAA_to_endM(A_to_endMAA(s_inA))
+    s = maximal_order_basis_search(endM)
     fs = factor(minpoly(s))
     @assert length(fs) > 1
     singularElements = (endM_to_actual_endM((p^e)(s)) for (p, e) in fs)
