@@ -95,6 +95,7 @@ Hecke.lll(a::Vector{ZZMatrix}) = isempty(a) ? a : frommatrix(lll(asmatrix(a)), s
 lll_saturate(a::Vector{ZZMatrix}) = isempty(a) ? a : frommatrix(lll(saturate(asmatrix(a))), size(a[1])...)
 lll_saturate(a::Vector{QQMatrix}) = QQMatrix.(lll_saturate(numerator.(a)))
 lll_saturate(v::Vector{T}) where T<:NCRingElem = isempty(v) ? v : parent(v[1]).(lll_saturate(matrix.(v))) :: Vector{T}
+lll_saturate(v::Vector{T}) where T<:AlgAssElem = isempty(v) ? v : parent(v[1]).(lll_saturate(matrix.(v))) :: Vector{T}
 
 
 asmatrix(v::Vector{T}) where T <: MatElem = reduce(vcat, newshape.(v, 1, :)) :: T
@@ -185,12 +186,14 @@ See also [`homogeneous_components(::Mod)`](@ref).
 function split_homogeneous(M::Mod)
     endM, endM_to_actual_endM = Hecke.endomorphism_algebra(M)
     endMAA, endMAA_to_endM = AlgAss(endM)
-    A, h = Hecke._as_algebra_over_center(endMAA)
-    si = schur_index(A)
+    A, A_to_endMAA = Hecke._as_algebra_over_center(endMAA)
+    A_to_endM = A_to_endMAA * endMAA_to_endM
+    si = schur_index(A) # computes a maximal order
     d = dim(A)
     m = divexact(sqrt(d), si)
     m == 1 && return [M]
-    s = maximal_order_basis_search(endM)
+    s_inA = maximal_order_basis_search(maximal_order(A), A_to_endM)
+    s = endMAA_to_endM(A_to_endMAA(s_inA))
     fs = factor(minpoly(s))
     @assert length(fs) > 1
     singularElements = (endM_to_actual_endM((p^e)(s)) for (p, e) in fs)
@@ -199,22 +202,24 @@ end
 
 Hecke.kernel(a::Hecke.ModAlgHom) = sub(domain(a), kernel(matrix(a))[2])
 
-maximal_order_basis_search(A::Hecke.AbsAlgAss) = maximal_order_basis_search(maximal_order(A))
-maximal_order_basis_search(o::Hecke.AlgAssAbsOrd) = maximal_order_basis_search(o.basis_alg)
+maximal_order_basis_search(A::Hecke.AbsAlgAss) = basis_search(maximal_order(A))
+maximal_order_basis_search(o::Hecke.AlgAssAbsOrd) = basis_search(o.basis_alg)
+maximal_order_basis_search(o::Hecke.AlgAssRelOrd, toAlgMat::Map) = basis_search(first.(pseudo_basis(o)), toAlgMat)
 
-function maximal_order_basis_search(v::Vector)
-    (a = find(is_split, v)) !== nothing && return a
-    for b1 in v, b2 in v
-        is_split(b1 * b2) && return b1 * b2
-        is_split(b1 + b2) && return b1 + b2
-    end
-    while a === nothing
-        a = find(is_split, lll_saturate([x * rand(v) for x in v]))
-    end
-    return a
-end
+basis_search(v::Vector) = find(Iterators.flatten(
+    _repeat_last(_pairwise_sums, _pairwise_products, _lll_random_elements) .|> v))
 
-find(f, v) = (i = findfirst(f, v); i === nothing ? nothing : v[i])
+basis_search(v::Vector, toAlgMat::Map) = find(Iterators.flatten(
+    _repeat_last(_pairwise_sums, _pairwise_products, __lll_random_elements(toAlgMat)) .|> v))
+
+_pairwise_sums(v::Vector) = (x+y for (i,x) in enumerate(v), y in v[i:end])
+_pairwise_products(v::Vector) = (x*y for x in v, y in v)
+_lll_random_elements(v::Vector) = lll_saturate([x*rand(v) for x in v])
+__lll_random_elements(toAlgMat::Map) = v -> inv(toAlgMat)(lll_saturate(toAlgMat.([x*rand(v) for x in v])))
+_repeat_last(args...) = Iterators.flatten((args[1:end-1], Iterators.repeated(args[end])))
+
+
+find(f, v) = for x in v f(x) && return x end
 
 is_split(a) = length(factor(minpoly(a))) > 1
 
