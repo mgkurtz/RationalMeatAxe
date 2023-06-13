@@ -35,7 +35,7 @@ M2 = Hecke.Amodule(gens2)
 M2sub1gens = MatrixSpace(QQ,1,1).([[1],[1]])
 
 structures = [[a for j in 1:i for a in 1:j] for i in 1:3]
-Mrands = [RandomAlgebras.rand_sum_of_matrix_algebras(QQ, -i:i, s) for s in structures]
+Mrands = [RandomAlgebras.rand_sum_of_matrix_algebras(QQ, 0:1, s) for s in structures]
 
 if false
 @testset "Hecke.jl" begin
