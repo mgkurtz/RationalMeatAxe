@@ -8,9 +8,11 @@ module RandomAlgebras
 using RandomExtensions
 using Hecke
 
-rand_sum_of_matrix_algebras(R, entries, args...) =
-    Amodule(rand_change_basis(make(R, entries),
-        sum_of_matrix_algebras_gens(R, args...)))
+function rand_sum_of_matrix_algebras(R, entries, args...)
+    G = sum_of_matrix_algebras_gens(R, args...)
+    B = rand_change_basis(make(R, entries), G)
+    return Amodule(B)
+end
 
 raw"""
     sum_of_matrix_algebras_gens(R, sizes::Vector{Int})

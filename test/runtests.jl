@@ -34,7 +34,8 @@ gens2 = MatrixSpace(QQ,3,3).([[0 1 0;1 0 0;0 0 1], [0 1 0;0 0 1;1 0 0]])
 M2 = Hecke.Amodule(gens2)
 M2sub1gens = MatrixSpace(QQ,1,1).([[1],[1]])
 
-Mrands = [RandomAlgebras.rand_sum_of_matrix_algebras(QQ, -i:i, [a for j in 1:i for a in 1:j]) for i in 1:3]
+structures = [[a for j in 1:i for a in 1:j] for i in 1:3]
+Mrands = [RandomAlgebras.rand_sum_of_matrix_algebras(QQ, -i:i, s) for s in structures]
 
 if false
 @testset "Hecke.jl" begin
@@ -53,14 +54,14 @@ if false
 end
 end
 
-@testset "center of End: $i" for (i, M) in Iterators.enumerate(Mrands)
+@testset "center of End: $i" for (i, M) in enumerate(Mrands)
     z = RationalMeatAxe.center_of_endomorphism_ring(M)
     for (a, m) in rand(make(Tuple, z, M.action_of_gens), 10)
         @test a * m == m * a
     end
 end
 
-@testset "basis of center of End: $i" for (i, M) in Iterators.enumerate(Mrands)
+@testset "basis of center of End: $i" for (i, M) in enumerate(Mrands)
     B = RationalMeatAxe.basis_of_center_of_endomorphism_ring(M)
     @test B !== nothing
     for a in B, m in M.action_of_gens
@@ -106,7 +107,7 @@ end
     end
 end
 
-@testset "random meataxe input $i" for (i, M) in Iterators.enumerate(Mrands)
-    Mhomogenous = RationalMeatAxe.homogeneous_components(M)
+@testset "random meataxe input $i" for (i, (s, M)) in enumerate(zip(structures, Mrands))
     Msub = RationalMeatAxe.meataxe(M)
+    @test sort(dim.(Msub)) == sort(s)
 end
