@@ -188,15 +188,15 @@ function split_homogeneous(M::Mod)
     endMAA, endMAA_to_endM = AlgAss(endM)
     A, A_to_endMAA = Hecke._as_algebra_over_center(endMAA)
     A_to_endM = A_to_endMAA * endMAA_to_endM
-    si = schur_index(A) # computes a maximal order
-    d = dim(A)
-    m = divexact(sqrt(d), si)
-    m == 1 && return [M]
+    # Note: `schur_index(A)` computes maximal_order(A), which takes some time.
+    dim(A) = schur_index(A)^2 && return [M]
+    v = first.(pseudo_basis(maximal_order(A)))
+    s = basis_search(A_to_endM, v)
     # TODO: Somehow reuse existing structure information, ie
     # maximal_order and possibly multiplication table
     # s_inA = maximal_order_basis_search(maximal_order(A), A_to_endM)
     # s = endMAA_to_endM(A_to_endMAA(s_inA))
-    s = maximal_order_basis_search(endM)
+    # s = maximal_order_basis_search(endM)
     fs = factor(minpoly(s))
     @assert length(fs) > 1
     singularElements = (endM_to_actual_endM((p^e)(s)) for (p, e) in fs)
@@ -205,22 +205,40 @@ end
 
 Hecke.kernel(a::Hecke.ModAlgHom) = sub(domain(a), kernel(matrix(a))[2])
 
-maximal_order_basis_search(A::Hecke.AbsAlgAss) = basis_search(maximal_order(A))
-maximal_order_basis_search(o::Hecke.AlgAssAbsOrd) = basis_search(o.basis_alg)
-maximal_order_basis_search(o::Hecke.AlgAssRelOrd, toAlgMat::Map) = basis_search(first.(pseudo_basis(o)), toAlgMat)
-
-basis_search(v::Vector) = find(Iterators.flatten(
-    _repeat_last(_pairwise_sums, _pairwise_products, _lll_random_elements) .|> v))
-
-basis_search(v::Vector, toAlgMat::Map) = find(Iterators.flatten(
-    _repeat_last(_pairwise_sums, _pairwise_products, __lll_random_elements(toAlgMat)) .|> v))
-
-_pairwise_sums(v::Vector) = (x+y for (i,x) in enumerate(v), y in v[i:end])
-_pairwise_products(v::Vector) = (x*y for x in v, y in v)
-_lll_random_elements(v::Vector) = lll_saturate([x*rand(v) for x in v])
-__lll_random_elements(toAlgMat::Map) = v -> inv(toAlgMat)(lll_saturate(toAlgMat.([x*rand(v) for x in v])))
+basis_search(v::Vector) = find(is_split, Iterators.flatten(
+    _repeat_last(_pairwise_sums, _pairwise_products, _lll_random_elements) .|> (v,)))
 _repeat_last(args...) = Iterators.flatten((args[1:end-1], Iterators.repeated(args[end])))
+_lll_random_elements(v::Vector) = lll_saturate([x*rand(v) for x in v])
 
+function basis_search(toAlgMat::Map, v::Vector)
+    (a = find(is_split, v)) === nothing || (@vprintln :rma "Split directly"; return a)
+    (a = find(is_split, _pairwise_sums(v))) === nothing || (@vprintln :rma "Split at sum"; return a)
+    (a = find(is_split, _pairwise_products(v))) === nothing || (@vprintln :rma "Split at product"; return a)
+    @vprintln :rma "lll-saturating basis"
+    v1 = v = lll_saturate(toAlgMat.(v))
+    while !isempty(v1)
+        (a = find(is_split, v1)) === nothing || (@vprintln :rma "Split directly"; return a)
+        (a = find(is_split, _pairwise_sums(v1))) === nothing || (@vprintln :rma "Split at sum"; return a)
+        (a = find(is_split, _pairwise_products(v1))) === nothing || (@vprintln :rma "Split at product"; return a)
+        v2 = permutedims(setdiff(v, v1))
+        (a = find(is_split, v1 .+ v2)) === nothing || (@vprintln :rma "Split at sum with old"; return a)
+        (a = find(is_split, v1 .* v2)) === nothing || (@vprintln :rma "Split at product with old"; return a)
+        (a = find(is_split, v2 .* v1)) === nothing || (@vprintln :rma "Split at product with old"; return a)
+        @vprintln :rma "lll-saturating enlarged basis"
+        v0 = lll_saturate([v; [rand(v)*rand(v) for _ in v]])
+        v, v1  = v0, setdiff(v0, v)
+    end
+    while true
+        @vprintln :rma "lll-saturating randomized basis"
+        v1 = lll_saturate([x*rand(v) for x in v])
+        (a = find(is_split, v1)) === nothing || (@vprintln :rma "Split directly"; return a)
+        (a = find(is_split, _pairwise_sums(v1))) === nothing || (@vprintln :rma "Split at sum"; return a)
+        (a = find(is_split, _pairwise_products(v1))) === nothing || (@vprintln :rma "Split at product"; return a)
+    end
+end
+
+_pairwise_sums(v::Vector) = (x+y for (i,x) in enumerate(v) for y in v[i:end])
+_pairwise_products(v::Vector) = (x*y for x in v, y in v)
 
 find(f, v) = for x in v f(x) && return x end
 
