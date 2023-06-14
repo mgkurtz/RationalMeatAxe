@@ -111,3 +111,8 @@ end
     @test RationalMeatAxe.homogeneous_components(M1) == [M1]
     @test RationalMeatAxe.meataxe(M1) == [M1]
 end
+
+stuff(gens::Vector) = stuff(Hecke.Amodule(gens))
+stuff(M::Hecke.ModAlgAss) = ((endM, to_actual_endM) = Hecke.endomorphism_algebra(M); (AA, to_endM) = AlgAss(endM); (A, toAA) = Hecke._as_algebra_over_center(AA); (; M, endM, AA, A, to_actual_endM, to_endM, toAA))
+more_stuff(gens::Vector) = more_stuff(Hecke.Amodule(gens))
+more_stuff(M::Hecke.ModAlgAss) = ((endM, to_actual_endM) = Hecke.endomorphism_algebra(M); (AA, to_endM) = AlgAss(endM); (A, toAA) = Hecke._as_algebra_over_center(AA); AO = maximal_order(A); endMO = maximal_order(endM); (; M, endM, AA, A, AO, endMO, to_actual_endM, to_endM, toAA))
