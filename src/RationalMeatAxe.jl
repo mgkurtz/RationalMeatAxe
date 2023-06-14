@@ -199,11 +199,6 @@ end
 
 Hecke.kernel(a::Hecke.ModAlgHom) = sub(domain(a), kernel(matrix(a))[2])
 
-# basis_search(v::Vector) = find(is_split, Iterators.flatten(
-#     _repeat_last(_pairwise_sums, _pairwise_products, _lll_random_elements) .|> (v,)))
-# _repeat_last(args...) = Iterators.flatten((args[1:end-1], Iterators.repeated(args[end])))
-# _lll_random_elements(v::Vector) = lll_saturate([x*rand(v) for x in v])
-
 function basis_search(toAlgMat::Map, v::Vector)
     (a = find(is_split, v)) === nothing || (@vprintln :rma "Split directly"; return toAlgMat(a))
     (a = find(is_split, _pairwise_sums(v))) === nothing || (@vprintln :rma "Split at sum"; return toAlgMat(a))
@@ -222,6 +217,7 @@ function basis_search(v::Vector)
         (a = find(is_split, v1 .* v2)) === nothing || (@vprintln :rma "Split at product with old"; return a)
         (a = find(is_split, v2 .* v1)) === nothing || (@vprintln :rma "Split at product with old"; return a)
         @vprintln :rma "lll-saturating enlarged basis"
+        # actually we had a basis over the center, thus it can now become uselessly large
         v0 = lll_saturate([v; [rand(v)*rand(v) for _ in v]])
         v, v1  = v0, setdiff(v0, v)
     end
