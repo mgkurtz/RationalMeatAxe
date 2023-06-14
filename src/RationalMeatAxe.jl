@@ -188,18 +188,9 @@ function split_homogeneous(M::Mod)
     endMAA, endMAA_to_endM = AlgAss(endM)
     A, A_to_endMAA = Hecke._as_algebra_over_center(endMAA)
     A_to_endM = A_to_endMAA * endMAA_to_endM
-    # Note: `schur_index(A)` computes maximal_order(A), which takes some time.
-    # Actually, it may take much longer than maximal_order(endM). Why?
-    # Can we use maximal_order(endM) instead?
-    # TODO: @profile maximal_order(A) for our example transitive group.
     dim(A) == schur_index(A)^2 && return [M]
     v = first.(pseudo_basis(maximal_order(A)))
     s = basis_search(A_to_endM, v)
-    # TODO: Somehow reuse existing structure information, ie
-    # maximal_order and possibly multiplication table
-    # s_inA = maximal_order_basis_search(maximal_order(A), A_to_endM)
-    # s = endMAA_to_endM(A_to_endMAA(s_inA))
-    # s = maximal_order_basis_search(endM)
     fs = factor(minpoly(s))
     @assert length(fs) > 1
     singularElements = (endM_to_actual_endM((p^e)(s)) for (p, e) in fs)
