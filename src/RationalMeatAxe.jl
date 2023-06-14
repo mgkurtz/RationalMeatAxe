@@ -214,9 +214,9 @@ Hecke.kernel(a::Hecke.ModAlgHom) = sub(domain(a), kernel(matrix(a))[2])
 # _lll_random_elements(v::Vector) = lll_saturate([x*rand(v) for x in v])
 
 function basis_search(toAlgMat::Map, v::Vector)
-    (a = find(is_split, v)) === nothing || (@vprintln :rma "Split directly"; return a)
-    (a = find(is_split, _pairwise_sums(v))) === nothing || (@vprintln :rma "Split at sum"; return a)
-    (a = find(is_split, _pairwise_products(v))) === nothing || (@vprintln :rma "Split at product"; return a)
+    (a = find(is_split, v)) === nothing || (@vprintln :rma "Split directly"; return toAlgMat(a))
+    (a = find(is_split, _pairwise_sums(v))) === nothing || (@vprintln :rma "Split at sum"; return toAlgMat(a))
+    (a = find(is_split, _pairwise_products(v))) === nothing || (@vprintln :rma "Split at product"; return toAlgMat(a))
     @vprintln :rma "lll-saturating basis"
     return basis_search(toAlgMat.(v))
 end
