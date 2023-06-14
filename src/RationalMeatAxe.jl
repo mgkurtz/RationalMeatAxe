@@ -189,7 +189,10 @@ function split_homogeneous(M::Mod)
     A, A_to_endMAA = Hecke._as_algebra_over_center(endMAA)
     A_to_endM = A_to_endMAA * endMAA_to_endM
     # Note: `schur_index(A)` computes maximal_order(A), which takes some time.
-    dim(A) = schur_index(A)^2 && return [M]
+    # Actually, it may take much longer than maximal_order(endM). Why?
+    # Can we use maximal_order(endM) instead?
+    # TODO: @profile maximal_order(A) for our example transitive group.
+    dim(A) == schur_index(A)^2 && return [M]
     v = first.(pseudo_basis(maximal_order(A)))
     s = basis_search(A_to_endM, v)
     # TODO: Somehow reuse existing structure information, ie
@@ -205,17 +208,20 @@ end
 
 Hecke.kernel(a::Hecke.ModAlgHom) = sub(domain(a), kernel(matrix(a))[2])
 
-basis_search(v::Vector) = find(is_split, Iterators.flatten(
-    _repeat_last(_pairwise_sums, _pairwise_products, _lll_random_elements) .|> (v,)))
-_repeat_last(args...) = Iterators.flatten((args[1:end-1], Iterators.repeated(args[end])))
-_lll_random_elements(v::Vector) = lll_saturate([x*rand(v) for x in v])
+# basis_search(v::Vector) = find(is_split, Iterators.flatten(
+#     _repeat_last(_pairwise_sums, _pairwise_products, _lll_random_elements) .|> (v,)))
+# _repeat_last(args...) = Iterators.flatten((args[1:end-1], Iterators.repeated(args[end])))
+# _lll_random_elements(v::Vector) = lll_saturate([x*rand(v) for x in v])
 
 function basis_search(toAlgMat::Map, v::Vector)
     (a = find(is_split, v)) === nothing || (@vprintln :rma "Split directly"; return a)
     (a = find(is_split, _pairwise_sums(v))) === nothing || (@vprintln :rma "Split at sum"; return a)
     (a = find(is_split, _pairwise_products(v))) === nothing || (@vprintln :rma "Split at product"; return a)
     @vprintln :rma "lll-saturating basis"
-    v1 = v = lll_saturate(toAlgMat.(v))
+    return basis_search(toAlgMat.(v))
+end
+function basis_search(v::Vector)
+    v1 = v
     while !isempty(v1)
         (a = find(is_split, v1)) === nothing || (@vprintln :rma "Split directly"; return a)
         (a = find(is_split, _pairwise_sums(v1))) === nothing || (@vprintln :rma "Split at sum"; return a)
@@ -228,9 +234,27 @@ function basis_search(toAlgMat::Map, v::Vector)
         v0 = lll_saturate([v; [rand(v)*rand(v) for _ in v]])
         v, v1  = v0, setdiff(v0, v)
     end
+    @vprintln :rma "brutally lll-saturating enlarged basis"
+    vv = collect(Iterators.flatten((v, _pairwise_products(v))))
+    v0 = lll_saturate(vv)
+    v, v1  = v0, setdiff(v0, v)
+    while !isempty(v1)
+        (a = find(is_split, v1)) === nothing || (@vprintln :rma "Split directly"; return a)
+        (a = find(is_split, _pairwise_sums(v1))) === nothing || (@vprintln :rma "Split at sum"; return a)
+        (a = find(is_split, _pairwise_products(v1))) === nothing || (@vprintln :rma "Split at product"; return a)
+        v2 = permutedims(setdiff(v, v1))
+        (a = find(is_split, v1 .+ v2)) === nothing || (@vprintln :rma "Split at sum with old"; return a)
+        (a = find(is_split, v1 .* v2)) === nothing || (@vprintln :rma "Split at product with old"; return a)
+        (a = find(is_split, v2 .* v1)) === nothing || (@vprintln :rma "Split at product with old"; return a)
+        @vprintln :rma "brutally lll-saturating enlarged basis"
+        vv = collect(Iterators.flatten((v, _pairwise_products(v))))
+        v0 = lll_saturate(vv)
+        v, v1  = v0, setdiff(v0, v)
+    end
+    @vprintln :rma "lll-saturating randomized basis"
     while true
-        @vprintln :rma "lll-saturating randomized basis"
-        v1 = lll_saturate([x*rand(v) for x in v])
+        @vprint :rma '.'
+        v1 = lll_saturate([x*rand(v)*rand(v) for x in v])
         (a = find(is_split, v1)) === nothing || (@vprintln :rma "Split directly"; return a)
         (a = find(is_split, _pairwise_sums(v1))) === nothing || (@vprintln :rma "Split at sum"; return a)
         (a = find(is_split, _pairwise_products(v1))) === nothing || (@vprintln :rma "Split at product"; return a)
