@@ -111,3 +111,6 @@ end
     Msub = RationalMeatAxe.meataxe(M)
     @test sort(dim.(Msub)) == sort(s)
 end
+
+stuff(gens::Vector) = stuff(Hecke.Amodule(gens))
+stuff(M::Hecke.Amodule) = ((endM, to_actual_endM) = Hecke.endomorphism_algebra(M); (AA, to_endM) = AlgAss(endM); (A, toAA) = Hecke._as_algebra_over_center(AA); AO = maximal_order(A); endMO = maximal_order(endM); (; M, endM, AA, A, AO, endMO, to_actual_endM, to_endM, toAA))
