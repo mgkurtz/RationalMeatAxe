@@ -24,7 +24,15 @@ The underlying algebra $A$ can be chosen as a subalgebra of $\operator{Mat}_N\ma
 Implements algorithm by Allan Steel.
 """
 function meataxe(M::Mod)
-    reduce(vcat, split_homogeneous.(homogeneous_components(M)))
+    @vprintln :rma "# Splitting into homogeneous components ..."
+    Hecke.pushindent()
+    Mhomos = homogeneous_components(M)
+    Hecke.popindent()
+    @vprintln :rma "---\n# Splitting homogeneous components ..."
+    Hecke.pushindent()
+    Msimples = reduce(vcat, split_homogeneous.(Mhomos))
+    Hecke.popindent()
+    return Msimples
 end
 
 @doc raw"""
@@ -38,15 +46,14 @@ direct sum of copies of some simple module.
 See also [`split_homogeneous(::Mod)`](@ref).
 """
 function homogeneous_components(M::Mod) :: Vector{Mod}
-    @vprint :rma "# Homogeneous Components of $M\n"
+    @vprintln :rma "# Homogeneous Components of $M"
     B = basis_of_center_of_endomorphism_ring(M)
-    B === nothing && return [M]
     dim_of_center = length(B)
     QQx, x = polynomial_ring(QQ, :x)
-    @vprint :rma "## Iterating through basis $B of the center of the endomorphism ring\n"
+    @vprintln :rma "## Iterating through basis $B of the center of the endomorphism ring"
     for b in B
-        @vprint :rma "Current basis element is\n"
-        @v_do :rma display(b)
+        @vprintln :rma 2 "Current basis element is"
+        @v_do :rma 2 display(b)
         f = minpoly(b)
         is_irreducible(f) && degree(f) == dim_of_center && return [M]
         fs = factor(f)
@@ -54,11 +61,11 @@ function homogeneous_components(M::Mod) :: Vector{Mod}
         p, e = first(fs)
         f1 = p^e
         f2 = divexact(f, f1)
-        @vprint :rma "Minimal polynomial is $f with coprime factors $f1 and $f2\n"
+        @vprintln :rma "Minimal polynomial is $f with coprime factors $f1 and $f2"
         f1, f2 = QQx(f1), QQx(f2)
         _1, s, t = gcdx(f1, f2)
         f1, f2 = s*f1, t*f2
-        @vprint :rma "Using multiples $f1 and $f2 summing up to 1\n"
+        @vprintln :rma "Using multiples $f1 and $f2 summing up to 1"
         @assert _1 == 1
         ss1 = homogeneous_components(M, f1(QQMatrix(b)))
         ss2 = homogeneous_components(M, f2(QQMatrix(b)))
@@ -68,8 +75,8 @@ function homogeneous_components(M::Mod) :: Vector{Mod}
 end
 
 function homogeneous_components(M::Mod, A::QQMatrix) :: Vector{Mod}
-    @vprint :rma "### Splitting at\n"
-    @v_do :rma display(A)
+    @vprintln :rma 2 "### Splitting at"
+    @v_do :rma 2 display(A)
     MA = sub(M, A)
     Hecke.pushindent()
     L = homogeneous_components(MA)
@@ -145,7 +152,7 @@ domain(a::ModHom) = a.domain
 codomain(a::ModHom) = image(a, a.domain)
 mat(a::ModHom) = a.T
 image(h::ModHom, x::Mat) = submatrix(h.invT * x * h.T, h.rank)
-image(h::ModHom, M::Mod) = Amodule(image.((h,), Hecke.action_of_gens(M)))
+image(h::ModHom, M::Mod) = Amodule(image.((h,), Hecke.action(M)))
 
 struct SubMod
     M :: Hecke.ModAlgAss
@@ -184,12 +191,15 @@ The input $M$ needs to be homogeneous, i.e. allow such a decomposition.
 See also [`homogeneous_components(::Mod)`](@ref).
 """
 function split_homogeneous(M::Mod)
-    endM, endM_to_actual_endM = Hecke.endomorphism_algebra(M)
+    @vprint :rma "Splitting Homogeneous $M"
+    endM, endM_to_actual_endM = Hecke.endomorphism_algebra(M) # already known
+    # TODO: Takes forever for M=Amodule(identity_matrix(QQ,8)) 😟
     endMAA, endMAA_to_endM = AlgAss(endM)
     A, A_to_endMAA = Hecke._as_algebra_over_center(endMAA)
     A_to_endM = A_to_endMAA * endMAA_to_endM
-    dim(A) == schur_index(A)^2 && return [M]
+    dim(A) == schur_index(A)^2 && (@vprintln :rma "is trivial"; return [M])
     v = first.(pseudo_basis(maximal_order(A)))
+    @vprintln :rma "by searching in $v"
     s = basis_search(A_to_endM, v)
     fs = factor(minpoly(s))
     @assert length(fs) > 1
@@ -199,60 +209,101 @@ end
 
 Hecke.kernel(a::Hecke.ModAlgHom) = sub(domain(a), kernel(matrix(a))[2])
 
-function basis_search(toAlgMat::Map, v::Vector)
-    (a = find(is_split, v)) === nothing || (@vprintln :rma "Split directly"; return toAlgMat(a))
-    (a = find(is_split, _pairwise_sums(v))) === nothing || (@vprintln :rma "Split at sum"; return toAlgMat(a))
-    (a = find(is_split, _pairwise_products(v))) === nothing || (@vprintln :rma "Split at product"; return toAlgMat(a))
-    @vprintln :rma "lll-saturating basis"
-    return basis_search(toAlgMat.(v))
-end
-function basis_search(v::Vector)
-    v1 = v
-    while !isempty(v1)
-        (a = find(is_split, v1)) === nothing || (@vprintln :rma "Split directly"; return a)
-        (a = find(is_split, _pairwise_sums(v1))) === nothing || (@vprintln :rma "Split at sum"; return a)
-        (a = find(is_split, _pairwise_products(v1))) === nothing || (@vprintln :rma "Split at product"; return a)
-        v2 = permutedims(setdiff(v, v1))
-        (a = find(is_split, v1 .+ v2)) === nothing || (@vprintln :rma "Split at sum with old"; return a)
-        (a = find(is_split, v1 .* v2)) === nothing || (@vprintln :rma "Split at product with old"; return a)
-        (a = find(is_split, v2 .* v1)) === nothing || (@vprintln :rma "Split at product with old"; return a)
-        @vprintln :rma "lll-saturating enlarged basis"
-        # actually we had a basis over the center, thus it can now become uselessly large
-        v0 = lll_saturate([v; [rand(v)*rand(v) for _ in v]])
-        v, v1  = v0, setdiff(v0, v)
-    end
-    @vprintln :rma "brutally lll-saturating enlarged basis"
-    vv = collect(Iterators.flatten((v, _pairwise_products(v))))
-    v0 = lll_saturate(vv)
-    v, v1  = v0, setdiff(v0, v)
-    while !isempty(v1)
-        (a = find(is_split, v1)) === nothing || (@vprintln :rma "Split directly"; return a)
-        (a = find(is_split, _pairwise_sums(v1))) === nothing || (@vprintln :rma "Split at sum"; return a)
-        (a = find(is_split, _pairwise_products(v1))) === nothing || (@vprintln :rma "Split at product"; return a)
-        v2 = permutedims(setdiff(v, v1))
-        (a = find(is_split, v1 .+ v2)) === nothing || (@vprintln :rma "Split at sum with old"; return a)
-        (a = find(is_split, v1 .* v2)) === nothing || (@vprintln :rma "Split at product with old"; return a)
-        (a = find(is_split, v2 .* v1)) === nothing || (@vprintln :rma "Split at product with old"; return a)
-        @vprintln :rma "brutally lll-saturating enlarged basis"
-        vv = collect(Iterators.flatten((v, _pairwise_products(v))))
-        v0 = lll_saturate(vv)
-        v, v1  = v0, setdiff(v0, v)
-    end
-    @vprintln :rma "lll-saturating randomized basis"
-    while true
-        @vprint :rma '.'
-        v1 = lll_saturate([x*rand(v)*rand(v) for x in v])
-        (a = find(is_split, v1)) === nothing || (@vprintln :rma "Split directly"; return a)
-        (a = find(is_split, _pairwise_sums(v1))) === nothing || (@vprintln :rma "Split at sum"; return a)
-        (a = find(is_split, _pairwise_products(v1))) === nothing || (@vprintln :rma "Split at product"; return a)
-    end
-end
+"""
+    basis_search(toAlgMat::Map=identity, v::Vector)
 
+Split element in `toAlgMat.(v)`.
+First try elements of `v` and sums and products, then try more fancy stuff.
+"""
+basis_search(toAlgMat::Map, v::Vector) =
+    (a = direct_basis_search(v)) !== nothing ? toAlgMat(a) : _basis_search(toAlgMat.(v))
+
+basis_search(v::Vector) =
+    (a = direct_basis_search(v)) !== nothing ? a : _basis_search(v)
+
+function direct_basis_search(v::Vector{T}) :: Union{T, Nothing} where T
+    (a = find(is_split, v)) === nothing || (@vprintln :rma "Splits directly"; return a)
+    (a = find(is_split, _pairwise_sums(v))) === nothing || (@vprintln :rma "Splits at sum"; return a)
+    (a = find(is_split, _pairwise_products(v))) === nothing || (@vprintln :rma "Splits at product"; return a)
+    return nothing
+end
 _pairwise_sums(v::Vector) = (x+y for (i,x) in enumerate(v) for y in v[i:end])
 _pairwise_products(v::Vector) = (x*y for x in v, y in v)
+
+"""
+    _basis_search(v::Vector{T}) -> :: T
+
+Complicated search for split elements using hopefully clever techniques.
+"""
+function _basis_search(v::Vector)
+    @vprintln :rma "Working with and lll-saturating $v"
+    a = false
+    while a === false
+        @vprintln :rma "lll-saturating enlarged basis"
+        # Caveat: actually we had a basis over the center, thus it can now become uselessly large
+        new = lll_saturate([v; [rand(v)*rand(v) for _ in v]])
+        a = basis_search_with_old(new, v)
+        v = new
+    end
+    a === true || return a
+    a = false
+    while a === false
+        @vprintln :rma "brutally lll-saturating enlarged basis"
+        vv = collect(Iterators.flatten((v, _pairwise_products(v))))
+        new = lll_saturate(vv)
+        a = basis_search_with_old(new, v)
+        v = new
+    end
+    a === true || return a
+    s = nothing
+    @vprintln :rma "lll-saturating randomized basis $v"
+    while s === nothing
+        @vprint :rma '.'
+        new = lll_saturate([x*rand(v)*rand(v) for x in v])
+        s = direct_basis_search(new)
+    end
+    @vprintln :rma "found $s"
+    return s
+end
+"""
+    basis_search_with_old(v::Vector, old::Vector) -> Union{Bool,T}
+
+Search for split elements using `v`, and combinations of `v` and `old`.
+Return it, or if none found, return `v==old`.
+"""
+function basis_search_with_old(v::Vector{T}, old::Vector{T}) :: Union{Bool,T} where T
+    new = setdiff(v, old)
+    isempty(new) && return true
+    (a = direct_basis_search(new)) === nothing || return a
+    w = permutedims(setdiff(old, v))
+    (a = find(is_split, new .+ w)) === nothing || (@vprintln :rma "Splits at sum with old"; return a)
+    (a = find(is_split, new .* w)) === nothing || (@vprintln :rma "Splits at product with old"; return a)
+    (a = find(is_split, w .* new)) === nothing || (@vprintln :rma "Splits at product with old"; return a)
+    return false
+end
 
 find(f, v) = for x in v f(x) && return x end
 
 is_split(a) = length(factor(minpoly(a))) > 1
+
+### Module fun
+
+function Base.:+(V::Hecke.ModAlgAss{KK,MM,AA}, W::Hecke.ModAlgAss{KK,MM,AA}) where {KK,MM<:MatrixElem,AA}
+    actionV, actionW = Hecke.consistent_action(V, W)
+    dim(W) == 0 && return V
+    dim(V) == 0 && return W
+    actionVW = block_diagonal_matrix.([v, w] for (v, w) in zip(actionV, actionW))
+    VW = Hecke.has_algebra(V) ?
+        isdefined(V, :action_of_gens) && isdefined(W, :action_of_gens) ?
+            Hecke.ModAlgAss{MM,AA}(algebra(V); action_of_gens=actionVW) :
+            Hecke.ModAlgAss{MM,AA}(algebra(V); action_of_basis=actionVW) :
+        Hecke.ModAlgAss{MM}(; action_of_gens=actionVW)
+    if isdefined(V, :action_of_gens_inverse) && isdefined(W, :action_of_gens_inverse)
+        VW.action_of_gens_inverse = block_diagonal_matrix.([v, w] for (v, w) in zip(V.action_of_gens_inverse, W.action_of_gens_inverse))
+    end
+    VW.is_irreducible = 1
+    VW.is_abs_irreducible = 1
+    return VW
+end
 
 end
