@@ -1,16 +1,15 @@
 raw"""
     AbstractSubModule{S,T,U}
 
-A submodule together with a projection onto it.
+A submodule together with a corresponding basis in the supermodule.
 
 For `a::AbstractSubModule` …
 `domain(a)::AbstractSubModule` gives the supermodule,
 `ancestor(a)::ModAlgAss` gives the super$^\infty$-module,
 `codomain(a)::ModAlgAss` gives the submodule,
-`mat(a)::MatrixElem` gives the projection from `domain(a)` onto `codomain(a)`,
+`mat(a)::MatrixElem` gives the column basis of `codomain(a)` as subset of `domain(a)`,
 `image(a, x)` maps algebra actions from `domain(a)` to `codomain(a)`,
-`projection(a)::MatrixElem` gives the projection from `ancestor(a)` onto `codomain(a)`,
-`invmat(a)` and `invprojection(a)` give the inverse matrices.
+`totalmat(a)::MatrixElem` like `mat`, but wrt. `ancestor(a)`,
 """
 abstract type AbstractSubModule{S,T,U} end
 
@@ -22,72 +21,62 @@ ancestor(a::ThisModule) = a.M
 codomain(a::ThisModule) = a.M
 image(a::ThisModule, x) = x
 mat(a::ThisModule) = identity_matrix(coefficient_ring(a.M), dim(a.M))
-invmat(a::ThisModule) = mat(a)
-projection(a::ThisModule) = mat(a)
-invprojection(a::ThisModule) = mat(a)
+totalmat(a::ThisModule) = mat(a)
 
 raw"""
-    SubModule{S}(M::Hecke.ModAlgAss{<:Any, S}, A::S) where S<:MatrixElem
+    SubModule{S}(M::Hecke.ModAlgAss{S,T,U}, A::T) where T<:MatrixElem
 
-Module automorphism from $M$ to $M⋅T$, where $AT=H$ is the HNF of an endomorphism $A$.
-The image thus has dimension `rank(H)`. Intended for use with a projection $A$.
+TODO: Transpose the following:
+
+Submodule `MA`=$M⋅A$ for a projection $A$.
+
+Let $X$ be an action on $M$ and $R=TA$ a reduced row echolon form of $A$.
+Then $M⋅A=M⋅R$ and $RX=TAX=TXA=TXT⁻¹TA=TXT⁻¹R=YR$, where $Y=RX/R$.
+By restricting $R$ to its $k$ non-zero rows, $Y$ becomes $k×k$.
+So, we represent $M⋅A$ as $M⋅R$ with transformed actions.
 """
-@attributes mutable struct SubModule{S,Q,U} <: AbstractSubModule{S,Q,U}
-    rank :: Int
-    T :: Q
-    invT :: Q
-    ancestor :: Hecke.ModAlgAss{S,Q,U}
-    domain :: AbstractSubModule{S,Q,U}
-    # Sei 𝓐 ⊆ K^{𝑚×𝑚} K-rechts-Algebra, jedes X∈𝓐 also auf dem Modul $M=K^𝑚$
-    # von rechts operierende Matrix.
-    # Ferner sei A∈End_K(𝓐), also AX=XA und H=AT die Spalten-HNF von A mit 𝑛 nicht-null-Spalten.
-    # Vermittels des Isomorphismus M⋅A → M⋅H=M⋅AT, m ↦ mT operiert X auf m∈M⋅H als mT⁻¹XT.
-    # Nun hat HT⁻¹XT = AXT = XAT = XH ebenfalls nur n nicht-null-Spalten, ist also von der Form
-    # (m×n)   0.
-    function SubModule(domain::AbstractSubModule{S,Q,U}, A::Q) where {S,Q<:MatrixElem,U}
-        H, T = hnf_with_transform(transpose(A))
-        T = transpose!(T)
-        return new{S,Q,U}(Hecke.rank_of_ref(H), T, inv(T), ancestor(domain), domain)
+@attributes mutable struct SubModule{S,T,U} <: AbstractSubModule{S,T,U}
+    R :: T
+    ancestor :: Hecke.ModAlgAss{S,T,U}
+    domain :: AbstractSubModule{S,T,U}
+    function SubModule(domain::AbstractSubModule{S,T,U}, A::T) where {S,T<:MatrixElem,U}
+        @req is_pseudoidempotent(A) "Matrix must be pseudo-idempotent, but $(A*A)!=λ*$A"
+        k, R = rref(transpose(A))
+        R = transpose(@view(R[1:k,:]))
+        return new{S,T,U}(R, ancestor(domain), domain)
     end
 end
 SubModule(a::Hecke.ModAlgAss{S,T,U}, A::T) where {S,T,U} = SubModule(ThisModule(a), A)
-SubModule(a::Hecke.ModAlgHom) = SubModule(domain(a), matrix(a))
+SubModule(M::SubModule, a::Hecke.ModAlgHom) = (@req codomain(M)==domain(a) "Homomorphism domain incorrect"; SubModule(M, matrix(a)))
 
 domain(a::SubModule) = a.domain
 ancestor(a::SubModule) = a.ancestor
-mat(a::SubModule) = a.T
-invmat(a::SubModule) = a.invT
+mat(a::SubModule) = a.R
 
-@attr Hecke.ModAlgAss{S,T,U} codomain(a::SubModule{S,T,U}) where {S,T,U} = image(a, domain(a))
+sub_module_type(S, T) = Hecke.AlgMat{elem_type(S), T}
 
-image(h::SubModule{S,T,U}, x::T) where {S,T,U} = submatrix(h.invT * x * h.T, h.rank)::T
-image(h::SubModule{S,T,U}, M::Hecke.ModAlgAss{S,T,U}) where {S,T,U} = Amodule(image.((h,), Hecke.action(M)))::Hecke.ModAlgAss{S,T,U}
-image(h::SubModule{S,T,U}, M::AbstractSubModule{S,T,U}) where {S,T,U} = image(h, codomain(M))::Hecke.ModAlgAss{S,T,U}
+@attr Hecke.ModAlgAss{S,T,sub_module_type(S,T)} codomain(a::SubModule{S,T}) where {S,T} = image(a, domain(a))
 
-submatrix(A::QQMatrix, n::Int) = (@req A[1:n, n+1:end] == 0 "The lower matrix entries must be zero. Possibly you created a `SubModule` with a non-endomorphism."; A[1:n, 1:n])
+image(h::SubModule{S,T,U}, x::T) where {S,T,U} = solve(h.R, x * h.R)::T
+image(h::SubModule{S,T}, M::Hecke.ModAlgAss{S,T}) where {S,T} = Amodule(image.((h,), Hecke.action(M)))::Hecke.ModAlgAss{S,T,sub_module_type(S,T)}
+image(h::SubModule{S,T}, M::AbstractSubModule{S,T}) where {S,T} = image(h, codomain(M))::Hecke.ModAlgAss{S,T,sub_module_type(S,T)}
 
-"""
-    projection(a::AbstractSubModule)
-
-For `M=ancestor(a)` and `N=codomain(a)` return `T` with `M⋅T=N`.
-"""
-projection(::AbstractSubModule)
-
-@attr projection(a::SubModule) = _projection(domain(a), mat(a))
-_projection(::ThisModule, T) = T
-function _projection(a::SubModule, Tn)
-    # N = M⋅T0⋅T1⋅⋅⋅Tn = M⋅T⋅Tn = project(M⋅T)⋅Tn
-    T = deepcopy(projection(a))
-    Tsub = @view(T[:, 1:ncols(Tn)])
-    Tsub = mul!(Tsub, Tsub, Tn)
-    return T
+function is_pseudoidempotent(a::MatrixElem)
+    aa = a*a
+    aa == 0 && return a == 0
+    return find(!is_zero, aa) / find(!is_zero, a) * a == aa
 end
 
-@attr invprojection(a::SubModule) = _invprojection(domain(a), invmat(a))
-_invprojection(::ThisModule, T) = T
-function _invprojection(a::SubModule, Tn)
-    T = deepcopy(invprojection(a))
-    Tsub = @view(T[1:ncols(Tn), :])
-    Tsub = mul!(Tsub, Tn, Tsub)
-    return T
-end
+"""
+    totalmat(a::AbstractSubModule)
+
+For `M=ancestor(a)` and `N=codomain(a)` return `C` with `C⋅M=N`.
+
+`C` is in reduced column echolon form.
+"""
+totalmat(::AbstractSubModule)
+
+# M_{n-1} ≥ R_n⋅M_n ⇒ M ≥ R_0⋅⋅⋅R_n⋅M_n
+@attr totalmat(a::SubModule) = _totalmat(domain(a), mat(a))
+_totalmat(a::SubModule, Rn) = totalmat(a) * Rn
+_totalmat(::ThisModule, R) = R

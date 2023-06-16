@@ -156,7 +156,7 @@ function split_homogeneous(M::AbstractSubModule) :: Vector{AbstractSubModule}
     fs = factor(minpoly(s))
     @assert length(fs) > 1
     singularElements = (endM_to_actual_endM((p^e)(s)) for (p, e) in fs)
-    return reduce(vcat, split_homogeneous.(SubModule.(singularElements)))
+    return reduce(vcat, split_homogeneous.(SubModule.((M,), singularElements)))
 end
 
 """
