@@ -17,14 +17,14 @@ AlgElem = Hecke.AlgAssElem{QQFieldElem, AlgAss{QQFieldElem}}
 # TODO: Hecke.decompose anschauen, oder gleich ganz Hecke.AlgAss
 
 @doc raw"""
-    meataxe(M::Mod) -> Vector{Mod}
+    meataxe(M::AbstractSubModule) -> Vector{AbstractSubModule}
 
 Given a semisimple module $M$ return simple submodules which add up to $M$.
 
 The underlying algebra $A$ can be chosen as a subalgebra of $\operator{Mat}_N\mathbf Q$.
 Implements algorithm by Allan Steel.
 """
-function meataxe(M::Mod)
+function meataxe(M::AbstractSubModule)
     @vprintln :rma "# Splitting into homogeneous components ..."
     Hecke.pushindent()
     Mhomos = homogeneous_components(M)
@@ -36,21 +36,23 @@ function meataxe(M::Mod)
     return Msimples
 end
 
+meataxe(M::Mod) = codomain.(meataxe(ThisModule(M)))
+homogeneous_components(M::Mod) = codomain.(homogeneous_components(ThisModule(M)))
+split_homogeneous(M::Mod) = codomain.(split_homogeneous(ThisModule(M)))
+
 @doc raw"""
-    homogeneous_components(M::Mod) -> Vector{Mod}
+    homogeneous_components(M::AbstractSubModule) -> Vector{AbstractSubModule}
 
 Return homogeneous $S_i$ such that $M=\bigoplus_i S_i=M$.
 
 The input $M$ needs to be semisimple. Homogeneous means to be isomorphic to a
 direct sum of copies of some simple module.
 
-See also [`split_homogeneous(::Mod)`](@ref).
+See also [`split_homogeneous(::AbstractSubModule)`](@ref).
 """
-function homogeneous_components(M::SubModule) :: Vector{SubModule}
-end
-function homogeneous_components(M::Mod) :: Vector{Mod}
+function homogeneous_components(M::AbstractSubModule) :: Vector{AbstractSubModule}
     @vprintln :rma "# Homogeneous Components of $M"
-    B = basis_of_center_of_endomorphism_ring(M)
+    B = basis_of_center_of_endomorphism_ring(codomain(M))
     dim_of_center = length(B)
     QQx, x = polynomial_ring(QQ, :x)
     @vprintln :rma "## Iterating through basis $B of the center of the endomorphism ring"
@@ -77,10 +79,10 @@ function homogeneous_components(M::Mod) :: Vector{Mod}
     return [M]
 end
 
-function homogeneous_components(M::Mod, A::QQMatrix) :: Vector{Mod}
+function homogeneous_components(M::AbstractSubModule, A::QQMatrix) :: Vector{AbstractSubModule}
     @vprintln :rma 2 "### Splitting at"
     @v_do :rma 2 display(A)
-    MA = codomain(SubModule(M, A))
+    MA = SubModule(M, A)
     Hecke.pushindent()
     L = homogeneous_components(MA)
     Hecke.popindent()
@@ -133,19 +135,18 @@ numerator(a::QQMatrix) = MatrixSpace(ZZ, size(a)...)(ZZ.(denominator(a)*a)) :: Z
 # ===
 
 @doc raw"""
-    split_homogeneous(M::Mod) -> Vector{Mod}
+    split_homogeneous(M::AbstractSubModule) -> Vector{AbstractSubModule}
 
 Return pairwise isomorphic simple $S_i$ such that $M=\bigoplus_i S_i=M$.
 
 The input $M$ needs to be homogeneous, i.e. allow such a decomposition.
 
-See also [`homogeneous_components(::Mod)`](@ref).
+See also [`homogeneous_components(::AbstractSubModule)`](@ref).
 """
-function split_homogeneous(M::Mod)
+function split_homogeneous(M::AbstractSubModule) :: Vector{AbstractSubModule}
     @vprint :rma "Splitting Homogeneous $M"
-    endM, endM_to_actual_endM = Hecke.endomorphism_algebra(M) # already known
-    # TODO: Takes forever for M=Amodule(identity_matrix(QQ,8)) 😟
-    endMAA, endMAA_to_endM = AlgAss(endM)
+    endM, endM_to_actual_endM = Hecke.endomorphism_algebra(codomain(M)) # already known from basis_of_center_of_endomorphism_ring when we come from `meataxe`
+    endMAA, endMAA_to_endM = AlgAss(endM) # TODO: Takes forever for M=Amodule(identity_matrix(QQ,8)) 😟
     A, A_to_endMAA = Hecke._as_algebra_over_center(endMAA)
     A_to_endM = A_to_endMAA * endMAA_to_endM
     dim(A) == schur_index(A)^2 && (@vprintln :rma "is trivial"; return [M])
@@ -155,10 +156,8 @@ function split_homogeneous(M::Mod)
     fs = factor(minpoly(s))
     @assert length(fs) > 1
     singularElements = (endM_to_actual_endM((p^e)(s)) for (p, e) in fs)
-    return reduce(vcat, split_homogeneous.(sub.(singularElements)))
+    return reduce(vcat, split_homogeneous.(SubModule.(singularElements)))
 end
-
-Hecke.kernel(a::Hecke.ModAlgHom) = sub(domain(a), kernel(matrix(a))[2])
 
 """
     basis_search(toAlgMat::Map=identity, v::Vector)
