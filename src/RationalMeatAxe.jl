@@ -6,6 +6,7 @@ using Hecke: ModAlgHom
 import Base: reshape
 import Hecke: sub, domain, codomain, mat
 
+include("SubModules.jl")
 include("RandomAlgebras.jl")
 
 __init__() = Hecke.add_verbosity_scope(:rma)
@@ -45,6 +46,8 @@ direct sum of copies of some simple module.
 
 See also [`split_homogeneous(::Mod)`](@ref).
 """
+function homogeneous_components(M::SubModule) :: Vector{SubModule}
+end
 function homogeneous_components(M::Mod) :: Vector{Mod}
     @vprintln :rma "# Homogeneous Components of $M"
     B = basis_of_center_of_endomorphism_ring(M)
@@ -77,7 +80,7 @@ end
 function homogeneous_components(M::Mod, A::QQMatrix) :: Vector{Mod}
     @vprintln :rma 2 "### Splitting at"
     @v_do :rma 2 display(A)
-    MA = sub(M, A)
+    MA = codomain(SubModule(M, A))
     Hecke.pushindent()
     L = homogeneous_components(MA)
     Hecke.popindent()
@@ -126,58 +129,6 @@ Base.eachcol(a::MatElem) = (view(a, :, i) for i in axes(a, 2))
 
 numerator(a::QQMatrix) = MatrixSpace(ZZ, size(a)...)(ZZ.(denominator(a)*a)) :: ZZMatrix
 
-raw"""
-    ModHom(M::Hecke.ModAlgAss, A::Mat)
-
-Module automorphism from $M$ to $M⋅T$, where $AT=H$ is the HNF of $A$.
-"""
-struct ModHom
-    rank :: Int
-    T :: Mat
-    invT :: Mat
-    domain :: Hecke.ModAlgAss
-    # Sei 𝓐 ⊆ K^{𝑚×𝑚} K-rechts-Algebra, jedes X∈𝓐 also auf dem Modul $M=K^𝑚$
-    # von rechts operierende Matrix.
-    # Ferner sei A∈End_K(𝓐), also AX=XA und H=AT die Spalten-HNF von A mit 𝑛 nicht-null-Spalten.
-    # Vermittels des Isomorphismus M⋅A → M⋅H=M⋅AT, m ↦ mT operiert X auf m∈M⋅H als mT⁻¹XT.
-    # Nun hat HT⁻¹XT = AXT = XAT = XH ebenfalls nur n nicht-null-Spalten, ist also von der Form
-    # (m×n)   0.
-    function ModHom(domain::Hecke.ModAlgAss, A::Mat)
-        H, T = hnf_with_transform(transpose(A))
-        T = transpose!(T)
-        return new(Hecke.rank_of_ref(H), T, inv(T), domain)
-    end
-end
-domain(a::ModHom) = a.domain
-codomain(a::ModHom) = image(a, a.domain)
-mat(a::ModHom) = a.T
-image(h::ModHom, x::Mat) = submatrix(h.invT * x * h.T, h.rank)
-image(h::ModHom, M::Mod) = Amodule(image.((h,), Hecke.action(M)))
-
-struct SubMod
-    M :: Hecke.ModAlgAss
-    hom :: ModHom
-    SubMod(h::ModHom) = new(codomain(h), h)
-end
-SubMod(M::Hecke.ModAlgAss, A::Mat) = SubMod(ModHom(M, A))
-sub(M::Hecke.ModAlgAss, A::Mat) = codomain(ModHom(M, A))
-
-ModHom(a::Hecke.ModAlgHom) = ModHom(domain(a), matrix(a))
-sub(a::Hecke.ModAlgHom) = codomain(ModHom(a))
-
-
-# TᵀAᵀ = Hᵀ ⇔ (AT)ᵀ = Hᵀ ⇔ AT = H
-column_hnf_with_transform(A) = transpose.(hnf_with_transform(transpose(A)))
-
-submatrix(A::QQMatrix, n::Int) = (@assert A[1:n, n+1:end] == 0; A[1:n, 1:n])
-
-
-function embedmatrix(A::QQMatrix, m::Int)
-    B = zero(MatrixSpace(QQ, m, m))
-    n = size(A, 1)
-    B[1:n, 1:n] = A
-    B
-end
 
 # ===
 

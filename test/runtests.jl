@@ -82,7 +82,8 @@ end
     A_ = inv(T) * S(A) * T
 
     M = Amodule(gs_)
-    M2 = RationalMeatAxe.sub(M, A_) # implicitly test some assertions
+    Msub = RationalMeatAxe.SubModule(M, A_)
+    M2 = codomain(Msub) # implicitly test assertion about A being an endomorphism
 
     @test dim(M2) == a
 end
