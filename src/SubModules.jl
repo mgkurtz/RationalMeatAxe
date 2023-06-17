@@ -40,7 +40,7 @@ So, we represent $M⋅A$ as $M⋅R$ with transformed actions.
     ancestor :: Hecke.ModAlgAss{S,T,U}
     domain :: AbstractSubModule{S,T,U}
     function SubModule(domain::AbstractSubModule{S,T,U}, A::T) where {S,T<:MatrixElem,U}
-        @req is_pseudoidempotent(A) "Matrix must be pseudo-idempotent, but $(A*A)!=λ*$A"
+        # @req is_pseudoidempotent(A) "Matrix must be pseudo-idempotent, but $(A*A)!=λ*$A"
         k, R = rref(transpose(A))
         R = transpose(@view(R[1:k,:]))
         return new{S,T,U}(R, ancestor(domain), domain)
@@ -62,6 +62,7 @@ image(h::SubModule{S,T}, M::Hecke.ModAlgAss{S,T}) where {S,T} = Amodule(image.((
 image(h::SubModule{S,T}, M::AbstractSubModule{S,T}) where {S,T} = image(h, codomain(M))::Hecke.ModAlgAss{S,T,sub_module_type(S,T)}
 
 function is_pseudoidempotent(a::MatrixElem)
+    # TODO: Does not hanlde ℚ^{k×k}^{n×n} matrices, where the ℚ^{k×k} part comes from a number field and shall be interpreted like a scalar
     aa = a*a
     aa == 0 && return a == 0
     return find(!is_zero, aa) / find(!is_zero, a) * a == aa
