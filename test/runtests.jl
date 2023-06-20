@@ -88,29 +88,44 @@ end
     @test dim(M2) == a
 end
 
+function test_meataxe(M::Hecke.ModAlgAss, dims::Vector{Int})
+    Msub = RationalMeatAxe.meataxe(RationalMeatAxe.ThisModule(M))
+    @test sort(dim.(codomain.(Msub))) == sort(dims)
+    for S in Msub
+        @test RationalMeatAxe.is_basis_of_submodule(RationalMeatAxe.totalmat(S), M)
+    end
+    return Msub
+end
+
+
 @testset "Sym(3) on QQ^3" begin
     @testset "homogeneous components" begin
         Mhomogenous = RationalMeatAxe.homogeneous_components(M2)
-        @test length(Mhomogenous) == 2
-        @test M2sub1gens in Hecke.action_of_gens.(Mhomogenous)
         @test sort(dim.(Mhomogenous)) == [1,2]
+        @test M2sub1gens in Hecke.action_of_gens.(Mhomogenous)
     end
     @testset "meataxe" begin
-        Msub = RationalMeatAxe.meataxe(M2)
-        @test length(Msub) == 2
-        @test M2sub1gens in Hecke.action_of_gens.(Msub)
-        @test sort(dim.(Msub)) == [1,2]
+        Msub = test_meataxe(M2, [1,2])
+        @test M2sub1gens in Hecke.action_of_gens.(codomain.(Msub))
     end
 end
 
 @testset "random meataxe input $i" for (i, (s, M)) in enumerate(zip(structures, Mrands))
-    Msub = RationalMeatAxe.meataxe(M)
-    @test sort(dim.(Msub)) == sort(s)
+    test_meataxe(M, s)
 end
 
 @testset "transitive_group(8,5) on QQ^4" begin
     @test RationalMeatAxe.homogeneous_components(M1) == [M1]
     @test RationalMeatAxe.meataxe(M1) == [M1]
+end
+
+@testset "Galois Module" begin
+    K, z_7 = cyclotomic_field(7)
+    KM, hKM = galois_module(K)
+    MKM = Hecke.regular_module(KM)
+    test_meataxe(MKM, [1,1,2,2])
+    test_meataxe(MKM+MKM, repeat([1,1,2,2], 2))
+    test_meataxe(MKM+MKM+MKM, repeat([1,1,2,2], 3))
 end
 
 stuff(gens::Vector) = stuff(Hecke.Amodule(gens))
