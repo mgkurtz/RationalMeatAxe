@@ -14,8 +14,6 @@ __init__() = Hecke.add_verbosity_scope(:rma)
 Mod = Hecke.ModAlgAss
 AlgElem = Hecke.AlgAssElem{QQFieldElem, AlgAss{QQFieldElem}}
 
-# TODO: Hecke.decompose anschauen, oder gleich ganz Hecke.AlgAss
-
 @doc raw"""
     meataxe(M::AbstractSubModule) -> Vector{AbstractSubModule}
 
