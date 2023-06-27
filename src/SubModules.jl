@@ -44,7 +44,7 @@ So, we represent $M⋅A$ as $M⋅R$ with transformed actions.
     end
 end
 SubModule(a::Hecke.ModAlgAss{S,T,U}, A::T) where {S,T,U} = SubModule(ThisModule(a), A)
-SubModule(M::SubModule, a::Hecke.ModAlgHom) = (@req codomain(M)==domain(a) "Homomorphism domain incorrect"; SubModule(M, matrix(a)))
+SubModule(M::AbstractSubModule, a::Hecke.ModAlgHom) = (@req codomain(M)==domain(a) "Homomorphism domain incorrect"; SubModule(M, matrix(a)))
 
 domain(a::SubModule) = a.domain
 ancestor(a::SubModule) = a.ancestor
