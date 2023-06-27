@@ -129,8 +129,7 @@ end
 Base.eachrow(a::MatElem) = (view(a, i, :) for i in axes(a, 1))
 Base.eachcol(a::MatElem) = (view(a, :, i) for i in axes(a, 2))
 
-# TODO: `integral_split`?
-numerator(a::QQMatrix) = MatrixSpace(ZZ, size(a)...)(ZZ.(denominator(a)*a)) :: ZZMatrix
+numerator(a::QQMatrix) = integral_split(a, ZZ)[1]
 
 
 # ===
