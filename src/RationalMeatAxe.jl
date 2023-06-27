@@ -58,10 +58,11 @@ function homogeneous_components(M::AbstractSubModule) :: Vector{AbstractSubModul
         @vprintln :rma 2 "Current basis element is"
         @v_do :rma 2 display(b)
         f = minpoly(b)
-        is_irreducible(f) && degree(f) == dim_of_center && return [M]
+        is_irreducible(f) && degree(f) == dim_of_center && break
         fs = factor(f)
         length(fs) == 1 && continue
-        p, e = first(fs)
+        codomain(M).is_irreducible = FALSE
+        p, e = first(fs) # TODO: can we take all factors instead?
         f1 = p^e
         f2 = divexact(f, f1)
         @vprintln :rma "Minimal polynomial is $f with coprime factors $f1 and $f2"
@@ -74,6 +75,7 @@ function homogeneous_components(M::AbstractSubModule) :: Vector{AbstractSubModul
         ss2 = homogeneous_components(M, f2(QQMatrix(b)))
         return [ss1; ss2]
     end
+    codomain(M).is_irreducible = TRUE
     return [M]
 end
 
@@ -148,7 +150,8 @@ function split_homogeneous(M::AbstractSubModule) :: Vector{AbstractSubModule}
     endMAA, endMAA_to_endM = AlgAss(endM) # TODO: Takes forever for M=Amodule(identity_matrix(QQ,8)) 😟
     A, A_to_endMAA = Hecke._as_algebra_over_center(endMAA)
     A_to_endM = A_to_endMAA * endMAA_to_endM
-    dim(A) == schur_index(A)^2 && (@vprintln :rma "is trivial"; return [M])
+    dim(A) == schur_index(A)^2 && (@vprintln :rma "is trivial"; codomain(M).is_irreducible = TRUE; return [M])
+    codomain(M).is_irreducible = FALSE
     v = first.(pseudo_basis(maximal_order(A)))
     @vprintln :rma "by searching in $v"
     s = basis_search(A_to_endM, v)
@@ -254,5 +257,9 @@ function Base.:+(V::Hecke.ModAlgAss{KK,MM,AA}, W::Hecke.ModAlgAss{KK,MM,AA}) whe
     VW.is_abs_irreducible = 1
     return VW
 end
+
+const UNKNOWN = 0
+const TRUE = 1
+const FALSE = 2
 
 end
