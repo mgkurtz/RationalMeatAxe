@@ -7,7 +7,7 @@ For `a::AbstractSubModule` …
 `domain(a)::AbstractSubModule` gives the supermodule,
 `ancestor(a)::ModAlgAss` gives the super$^\infty$-module,
 `codomain(a)::ModAlgAss` gives the submodule,
-`mat(a)::MatrixElem` gives the column basis of `codomain(a)` as subset of `domain(a)`,
+`mat(a)::MatrixElem` gives the row basis of `codomain(a)` as subset of `domain(a)`,
 `image(a, x)` maps algebra actions from `domain(a)` to `codomain(a)`,
 `totalmat(a)::MatrixElem` like `mat`, but wrt. `ancestor(a)`,
 """
@@ -23,22 +23,21 @@ image(a::ThisModule, x) = x
 mat(a::ThisModule) = identity_matrix(coefficient_ring(a.M), dim(a.M))
 totalmat(a::ThisModule) = mat(a)
 
-raw"""
+@doc raw"""
     SubModule{S}(M::Hecke.ModAlgAss{S,T,U}, A::T) where T<:MatrixElem
 
-Submodule `MA`=$M⋅A$ for a projection $A$.
-
-Let $X$ be an action on $M$ and $R=TA$ a reduced row echolon form of $A$.
-Then $M⋅A=M⋅R$ and $RX=TAX=TXA=TXT⁻¹TA=TXT⁻¹R=YR$, where $Y=RX/R$.
-By restricting $R$ to its $k$ non-zero rows, $Y$ becomes $k×k$.
-So, we represent $M⋅A$ as $M⋅R$ with transformed actions.
+Submodule `MA`=$M⋅A$. Being a submodule is not verified.
 """
 @attributes mutable struct SubModule{S,T,U} <: AbstractSubModule{S,T,U}
+    # If `MA` is a submodule, then wlog. $A$ is a projecting module endomorphism.
+    # Let $X$ be an action on $M$ and $R=TA$ a reduced row echolon form of $A$.
+    # Then $M⋅A=M⋅R$ and $RX=TAX=TXA=TXT⁻¹TA=TXT⁻¹R=YR$, where $Y=RX/R$.
+    # By restricting $R$ to its $k$ non-zero rows, $Y$ becomes $k×k$.
+    # So, we represent $M⋅A$ as $M⋅R$ with transformed actions.
     R :: T
     ancestor :: Hecke.ModAlgAss{S,T,U}
     domain :: AbstractSubModule{S,T,U}
     function SubModule(domain::AbstractSubModule{S,T,U}, A::T) where {S,T<:MatrixElem,U}
-        # @req is_pseudoidempotent(A) "Matrix must be pseudo-idempotent, but $(A*A)!=λ*$A"
         k, R = rref(A)
         return new{S,T,U}(R[1:k,:], ancestor(domain), domain)
     end
@@ -70,11 +69,10 @@ end
 
 For `M=ancestor(a)` and `N=codomain(a)` return `C` with `C⋅M=N`.
 
-`C` is in reduced column echolon form.
+`C` is in reduced row echolon form.
 """
 totalmat(::AbstractSubModule)
 
-# M_{n-1} ≥ R_n⋅M_n ⇒ M ≥ R_0⋅⋅⋅R_n⋅M_n
 @attr totalmat(a::SubModule) = _totalmat(domain(a), mat(a))
 _totalmat(a::SubModule, Rn) = Rn * totalmat(a)
 _totalmat(::ThisModule, R) = R
