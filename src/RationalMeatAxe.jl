@@ -8,6 +8,7 @@ import Hecke: sub, domain, codomain, mat
 
 include("SubModules.jl")
 include("RandomAlgebras.jl")
+include("Example.jl")
 
 __init__() = Hecke.add_verbosity_scope(:rma)
 
