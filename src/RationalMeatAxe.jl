@@ -30,7 +30,7 @@ function meataxe(M::AbstractSubModule)
     Hecke.popindent()
     @vprintln :rma "---\n# Splitting homogeneous components ..."
     Hecke.pushindent()
-    Mhomos = reduce(vcat, split_in_spinned_modules(Mhomos))
+    Mhomos = reduce(vcat, split_in_spinned_modules.(Mhomos))
     Msimples = reduce(vcat, split_homogeneous.(Mhomos))
     Hecke.popindent()
     return Msimples
