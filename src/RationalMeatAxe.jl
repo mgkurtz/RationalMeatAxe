@@ -30,7 +30,9 @@ function meataxe(M::AbstractSubModule)
     Hecke.popindent()
     @vprintln :rma "---\n# Splitting homogeneous components ..."
     Hecke.pushindent()
-    Mhomos = reduce(vcat, split_in_spinned_modules.(Mhomos))
+    # should be useful for, say meataxe(Amodule([identity_matrix(QQ,8)]))
+    # maybe needs some further exploration
+    # Mhomos = reduce(vcat, split_in_spinned_modules.(Mhomos))
     Msimples = reduce(vcat, split_homogeneous.(Mhomos))
     Hecke.popindent()
     return Msimples

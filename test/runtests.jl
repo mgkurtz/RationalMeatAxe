@@ -116,7 +116,8 @@ end
 
 @testset "transitive_group(8,5) on QQ^4" begin
     @test RationalMeatAxe.homogeneous_components(M1) == [M1]
-    @test RationalMeatAxe.meataxe(M1) == [M1]
+    ThisM1 = RationalMeatAxe.ThisModule(M1)
+    @test RationalMeatAxe.meataxe(ThisM1) == [ThisM1]
 end
 
 @testset "Galois Module" begin
